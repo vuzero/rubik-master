@@ -1,0 +1,8 @@
+# Build output (recreate with: node tools/build-cloudflare.mjs)
+dist/
+rubik-solver-cloudflare.zip
+
+# Local editor / tooling
+.DS_Store
+.claude/
+node_modules/
