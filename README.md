@@ -28,9 +28,14 @@ The method is the beginner **reduction** method with a layer-by-layer finish. It
 
 All moves use standard WCA notation (`R`, `R'`, `R2`, `Rw`, `x y z`). Every move also gets a plain-English explanation on screen.
 
-## Goals before moves
+## Plan, then result
 
-Each step opens with a **Goal**: which piece moves, where it is now and where it must end up (for example "White–Green edge: top-back edge → bottom-front edge"). On the 3D cube the piece has a violet frame and a "From" label, its destination slot has a cyan frame and a "To" label, and a slim violet arrow joins them. The labels and the violet frame ride along with the piece while you step through the moves, and the camera turns so both ends are visible. While playing, the app pauses briefly on each new goal before turning anything. Every part of a step (Setup, Align, the algorithm) also says what it is for.
+Each step has two views:
+
+- **Plan:** the cube as the step starts. The piece to move has a violet **From** label and its destination a cyan **To** label, joined by an arrow. The card beside the cube shows one line per piece (for example "White–Green edge: top-back edge → bottom-front edge") and the step's moves in large type, to do on your own cube.
+- **Done:** press **See result** and the cube fades to its state after the step; the destination is marked **Done ✓**. Press **Next step** for the next plan.
+
+Intermediate positions are not animated: you see where each piece starts and where it must end up. **Why these moves** opens the explanation, **All steps** jumps anywhere, and Play walks through plan → result → next plan on its own.
 
 ## Deploy to Cloudflare Pages
 

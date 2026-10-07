@@ -1,5 +1,5 @@
 /* Layout: playful cards. A stage-progress bar on top, the cube in a big rounded card,
-   chunky round controls, and a stack of move cards (now + next) beside the guide. */
+   and one focused step card beside it: status, where each piece goes, the moves, Back/Play/Next. */
 :root {
   --bg: #fff7e8;
   --surface: #ffffff;
@@ -126,7 +126,7 @@ main { max-width: 1240px; margin: 0 auto; }
   transition: transform 0.08s, box-shadow 0.08s;
 }
 .btn:hover { border-color: var(--line-strong); }
-.btn:active, .round:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--line-strong); }
+.btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--line-strong); }
 .btn.primary {
   background: var(--accent); border-color: var(--accent); color: var(--accent-ink);
   padding: 13px 18px; font-size: 16px; font-weight: 800; box-shadow: 0 4px 0 var(--accent-text);
@@ -221,81 +221,57 @@ main { max-width: 1240px; margin: 0 auto; }
 .cube-card { background: var(--surface); border: 2px solid var(--line); border-radius: var(--r-lg); padding: 8px; }
 .cube-card .viewport { aspect-ratio: 5 / 4; }
 
-.transport { display: flex; justify-content: center; align-items: center; gap: 10px; }
-.round {
-  width: 52px; height: 52px; border-radius: 50%; border: 2px solid var(--line); background: var(--surface);
-  display: grid; place-items: center; cursor: pointer; box-shadow: var(--press); transition: transform 0.08s, box-shadow 0.08s;
-}
-.round svg { width: 20px; height: 20px; }
-.round:disabled { opacity: 0.4; cursor: not-allowed; }
-.round.play {
-  width: auto; min-width: 116px; border-radius: 999px; padding: 0 22px;
-  background: var(--ink); border-color: var(--ink); color: var(--bg); font: 800 17px/1 var(--font-display); box-shadow: 0 3px 0 var(--muted);
-}
 .options { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px 18px; font-size: 14px; font-weight: 700; color: var(--muted); }
 .options label { display: inline-flex; align-items: center; gap: 8px; }
 .options input[type='range'] { width: 110px; accent-color: var(--accent); }
 .options input[type='checkbox'] { accent-color: var(--accent); width: 18px; height: 18px; }
 
-/* ---- move cards ---- */
-.guide { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
-.move-stack { display: flex; flex-direction: column; gap: 8px; }
-.move-now { display: flex; align-items: center; gap: 16px; min-width: 0; }
-.move-big {
-  flex: none; display: grid; place-items: center; min-width: 96px; height: 84px; padding: 0 14px; border-radius: var(--r-lg);
-  background: var(--accent); color: var(--accent-ink); font: 700 40px/1 var(--font-mono); box-shadow: 0 5px 0 var(--accent-text);
+/* ---- the focused step card ---- */
+.guide { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.step-card { display: flex; flex-direction: column; gap: 16px; }
+.step-head { display: flex; align-items: center; gap: 14px; }
+.step-title { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.state-badge {
+  flex: none; display: grid; place-items: center; min-width: 84px; height: 48px; padding: 0 14px; border-radius: var(--r-md);
+  font: 800 17px/1 var(--font-display);
 }
-.now-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.now-text strong { font: 800 18px/1.2 var(--font-display); }
-.now-text span { color: var(--muted); font-size: 14px; }
-.now-part { margin: 2px 0 0; font-size: 13.5px; font-weight: 700; color: var(--accent-text); min-height: 1.4em; }
-.move-next { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 38px; }
-.move-next .then { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
-.move-next button {
-  font: 700 16px/1 var(--font-mono); padding: 8px 12px; border-radius: 12px; border: 2px solid var(--line);
-  background: var(--surface); cursor: pointer; box-shadow: var(--press);
-}
-.move-next button + button { opacity: 0.6; }
+.state-badge.is-plan { background: var(--accent); color: var(--accent-ink); box-shadow: 0 3px 0 var(--accent-text); }
+.state-badge.is-done { background: var(--ok); color: var(--surface); box-shadow: 0 3px 0 color-mix(in srgb, var(--ok) 60%, var(--ink)); }
 
-/* ---- step card ---- */
-.step-card { display: flex; flex-direction: column; gap: 14px; }
-.step-card .meta { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
-.goal {
-  display: flex; flex-direction: column; gap: 8px; background: var(--surface-2); border-radius: var(--r-md); padding: 12px 14px;
-}
-.goal-text { font-size: 16.5px; font-weight: 800; line-height: 1.35; margin: 0; transition: color 0.3s; }
-.goal.is-intro .goal-text { color: var(--accent-text); }
-.goal-routes { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; font-size: 13.5px; }
-.goal-routes li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-.goal-routes b { font-weight: 800; }
-.goal-routes span { color: var(--muted); }
-.route-arrow { color: var(--goal-src); font-weight: 800; }
+.routes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
+.routes li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.routes b { font-weight: 800; }
+.routes .route { color: var(--goal-src); font-weight: 700; }
+.routes.is-done .route { color: var(--ok); }
+.routes .more { color: var(--muted); font-size: 13.5px; }
 .swatches { display: inline-flex; gap: 3px; }
 .sw { width: 15px; height: 15px; border-radius: 4px; display: inline-block; box-shadow: inset 0 0 0 1.5px rgb(0 0 0 / 0.22); }
 .sw-W { background: #f4f5f0; } .sw-Y { background: #ffd200; } .sw-G { background: #00a651; }
 .sw-B { background: #0b55c4; } .sw-R { background: #c8102e; } .sw-O { background: #ff6a13; }
 
-.parts { list-style: none; margin: 0 0 0 7px; padding: 0 0 0 20px; display: flex; flex-direction: column; gap: 14px; border-left: 3px dotted var(--line-strong); }
-.part { position: relative; display: flex; flex-direction: column; gap: 7px; }
-.part::before {
-  content: ''; position: absolute; left: -30px; top: 1px; width: 14px; height: 14px; border-radius: 50%;
-  background: var(--surface); border: 3px solid var(--line-strong);
+.moves { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 14px; border-radius: var(--r-md); background: var(--surface-2); }
+.move-group { display: flex; flex-wrap: wrap; gap: 6px; }
+.moves .token {
+  font: 700 20px/1 var(--font-mono); padding: 9px 11px; border-radius: 11px; cursor: help;
+  background: var(--surface); border: 2px solid var(--line); box-shadow: var(--press);
 }
-.part.is-current::before { border-color: var(--accent); background: var(--accent); }
-.part.is-done::before { border-color: var(--ok); background: var(--ok); }
-.part-head { display: flex; flex-direction: column; gap: 1px; }
-.part-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 800; }
-.part.is-current .part-label { color: var(--accent-text); }
-.part-why { font-size: 13.5px; color: var(--muted); }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chips .token {
-  font: 700 15px/1 var(--font-mono); padding: 7px 10px; border-radius: 10px; cursor: pointer;
-  border: 2px solid var(--line); background: var(--surface); transition: background 0.15s, color 0.15s;
-}
-.chips .token.done { color: var(--muted); background: var(--surface-2); border-color: transparent; }
-.chips .token.current { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); box-shadow: 0 3px 0 var(--accent-text); }
-.how-to summary { cursor: pointer; font-size: 13.5px; color: var(--muted); font-weight: 800; }
-.how-to p { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
+.moves.is-done .token { color: var(--muted); box-shadow: none; }
+.step-card .hint { margin: -6px 0 0; font-size: 13.5px; }
+.from-word { color: var(--goal-src); }
+.to-word { color: var(--goal-dst); }
+
+.why summary { cursor: pointer; font-size: 14px; font-weight: 800; color: var(--muted); }
+.why[open] summary { margin-bottom: 8px; }
+.why p, .why ul { margin: 0 0 8px; font-size: 14px; color: var(--muted); }
+.why ul { padding-left: 18px; }
+.why b { color: var(--ink); }
+
+.card-actions { display: grid; grid-template-columns: 1fr auto 1.4fr; gap: 10px; }
+.card-actions .btn { padding: 11px 14px; font-size: 15px; font-weight: 800; }
+.card-actions .play-btn { background: var(--ink); border-color: var(--ink); color: var(--bg); box-shadow: 0 3px 0 var(--muted); min-width: 88px; }
+.card-actions .btn.primary { padding: 11px 16px; }
+
+.drawer { background: transparent; border: 2px solid var(--line); border-radius: var(--r-md); padding: 10px 14px; }
 
 .goal-labels { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .goal-labels text { font: 800 14px/1 var(--font-body); letter-spacing: 0.02em; }
@@ -326,7 +302,12 @@ main { max-width: 1240px; margin: 0 auto; }
 
 @media (max-width: 980px) {
   .input-grid, .solve-grid { grid-template-columns: minmax(0, 1fr); }
-  .preview-panel, .stage { position: static; }
+  .preview-panel { position: static; }
+  /* One column: cube, then the step card, then the less-used options. */
+  .stage { display: contents; }
+  .cube-card { order: 1; }
+  .guide { order: 2; }
+  .options { order: 3; }
   .preview-panel .viewport { max-width: 360px; margin-inline: auto; }
   .steps-panel { max-height: none; }
 }
@@ -334,14 +315,12 @@ main { max-width: 1240px; margin: 0 auto; }
   .panel, .card { padding: 14px; }
   h1 { font-size: 23px; }
   .phase-name { font-size: 11px; }
-  .move-big { min-width: 76px; height: 66px; font-size: 30px; }
-  .round { width: 46px; height: 46px; }
-  .round.play { min-width: 96px; }
+  .moves .token { font-size: 17px; padding: 7px 9px; }
   .net { gap: 6px; }
   .face-grid { gap: 2px; padding: 3px; }
   /* 16 stickers + 66px of gaps must fit in 100vw minus 64px of gutters, card padding and borders. */
   :root { --sticker: min(17px, calc((100vw - 134px) / 16)); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .phase-fill, .chips .token, .goal-text, .btn, .round { transition: none; }
+  .phase-fill, .btn { transition: none; }
 }

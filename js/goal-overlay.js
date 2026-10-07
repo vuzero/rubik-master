@@ -104,6 +104,18 @@
       this.view.render();
     }
 
+    /** After a step: frame the destination slots (now holding their pieces) and label them "Done". */
+    showResult(groups) {
+      if (!this.view.ok) return;
+      const slots = new Set(groups.flat());
+      this.src.forEach((m) => { m.visible = false; });
+      this.dst.forEach((m, i) => { m.visible = slots.has(i); });
+      this.clearArrows();
+      this.labels = this.mergeTargets(groups).map((t) => ({ kind: 'to', text: 'Done ✓', groups: t.groups, stickers: t.groups.flat() }));
+      this.drawLabels();
+      this.view.render();
+    }
+
     hideArrows() {
       if (this.view.ok) this.arrows.visible = false;
     }
@@ -163,12 +175,7 @@
           labels.push({ kind: 'from', text: moving.length > 1 ? `From ${k + 1}` : 'From', groups: [m.from] });
         });
         // One "To" per distinct destination; halves of one edge share a label.
-        const targets = [];
-        moving.forEach((m, k) => {
-          const anchor = groupAnchor(m.to);
-          const near = targets.find((t) => t.anchor.distanceTo(anchor) < MERGE_UNITS);
-          if (near) { near.groups.push(m.to); near.nums.push(k + 1); } else targets.push({ anchor, groups: [m.to], nums: [k + 1] });
-        });
+        const targets = this.mergeTargets(moving.map((m) => m.to));
         targets.forEach((t) => labels.push({
           kind: 'to',
           text: moving.length > 1 && targets.length > 1 ? `To ${t.nums.join('+')}` : 'To',
@@ -176,6 +183,21 @@
         }));
       }
       this.labels = labels.map((l) => ({ ...l, stickers: l.groups.flat() }));
+      this.drawLabels();
+    }
+
+    // Destinations closer than MERGE_UNITS share one label; nums are 1-based group numbers.
+    mergeTargets(groups) {
+      const targets = [];
+      groups.forEach((g, k) => {
+        const anchor = groupAnchor(g);
+        const near = targets.find((t) => t.anchor.distanceTo(anchor) < MERGE_UNITS);
+        if (near) { near.groups.push(g); near.nums.push(k + 1); } else targets.push({ anchor, groups: [g], nums: [k + 1] });
+      });
+      return targets;
+    }
+
+    drawLabels() {
       this.svg.innerHTML = this.labels.map((l) => {
         const fill = l.kind === 'from' ? SRC_CSS : DST_CSS;
         const ink = l.kind === 'from' ? '#ffffff' : '#04263a';

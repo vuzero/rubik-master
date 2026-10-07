@@ -168,6 +168,45 @@
       if (this.active) this.active.done();
     }
 
+    /**
+     * Fade every sticker from one state's colors to another's. Used to go from a
+     * step's plan straight to its result without showing the moves in between.
+     */
+    tweenColors(fromLetters, toLetters, durationMs) {
+      if (!this.ok || reducedMotion() || durationMs <= 0) return this.hold(0);
+      this.finishNow();
+      const changed = [];
+      fromLetters.forEach((c, i) => {
+        if (c !== toLetters[i]) {
+          changed.push({
+            mat: this.stickers[i].material,
+            from: new THREE.Color(STICKER_HEX[c] ?? BLANK_HEX),
+            to: new THREE.Color(STICKER_HEX[toLetters[i]] ?? BLANK_HEX),
+          });
+        }
+      });
+      return new Promise((resolve) => {
+        const start = performance.now();
+        const done = () => {
+          changed.forEach((c) => c.mat.color.copy(c.to));
+          this.active = null;
+          this.render();
+          resolve();
+        };
+        this.active = { done };
+        const tick = (now) => {
+          if (this.active?.done !== done) return;
+          const t = Math.min(1, (now - start) / durationMs);
+          const e = ease(t);
+          changed.forEach((c) => c.mat.color.copy(c.from).lerp(c.to, e));
+          this.render();
+          if (t < 1) requestAnimationFrame(tick);
+          else done();
+        };
+        requestAnimationFrame(tick);
+      });
+    }
+
     /** Wait like a move would, without animating; finishNow() ends it early. */
     hold(durationMs) {
       this.finishNow();

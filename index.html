@@ -68,23 +68,11 @@
       <div class="journey">
         <ol class="phase-bar" id="phase-bar" aria-label="Solve progress by stage"></ol>
         <div class="counter"><span id="counter-steps" aria-live="polite"></span><span id="counter-moves"></span></div>
-        <div class="progress" aria-hidden="true"><div id="progress-bar"></div></div>
       </div>
 
       <div class="solve-grid">
         <div class="stage">
           <div class="cube-card"><div class="viewport" id="solve3d"></div></div>
-          <div class="transport">
-            <button type="button" class="round" id="btn-prev-step" title="Previous step (Shift+←)" aria-label="Previous step">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
-            <button type="button" class="round" id="btn-back" title="Back one move (←)" aria-label="Back one move">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 5v14L6 12z"/></svg></button>
-            <button type="button" class="round play" id="btn-play" title="Play / pause (Space)">Play</button>
-            <button type="button" class="round" id="btn-fwd" title="Next move (→)" aria-label="Next move">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8.5 5v14L18 12z"/></svg></button>
-            <button type="button" class="round" id="btn-next-step" title="Next step (Shift+→)" aria-label="Next step">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
-          </div>
           <div class="options">
             <label for="speed">Speed <input type="range" id="speed" min="1" max="5" step="1" value="3"></label>
             <label class="toggle" for="pause-at-step"><input type="checkbox" id="pause-at-step" checked> Pause after each step</label>
@@ -94,25 +82,25 @@
         </div>
 
         <aside class="guide">
-          <div class="move-stack">
-            <div class="move-now">
-              <span id="now-token" class="move-big">—</span>
-              <div class="now-text">
-                <strong id="now-title"></strong>
-                <span id="now-detail"></span>
-              </div>
+          <div class="card step-card">
+            <div id="step-body"></div>
+            <details class="why" id="why">
+              <summary>Why these moves</summary>
+              <div id="why-body"></div>
+            </details>
+            <div class="card-actions">
+              <button type="button" class="btn" id="btn-back" title="Back (←)">‹ Back</button>
+              <button type="button" class="btn play-btn" id="btn-play" title="Play / pause (Space)">Play</button>
+              <button type="button" class="btn primary" id="btn-fwd" title="Next (→)">See result ›</button>
             </div>
-            <p class="now-part" id="now-part"></p>
-            <div class="move-next" id="move-next" aria-label="Coming next"></div>
           </div>
-          <div class="card step-card" id="step-card"></div>
-          <details class="card legend">
-            <summary>How to read the moves (WCA notation)</summary>
-            <dl id="legend"></dl>
-          </details>
-          <details class="card steps-drawer">
+          <details class="drawer steps-drawer">
             <summary>All steps</summary>
             <div class="steps-panel"><ol class="step-list" id="step-list"></ol></div>
+          </details>
+          <details class="drawer legend">
+            <summary>How to read the moves</summary>
+            <dl id="legend"></dl>
           </details>
         </aside>
       </div>
