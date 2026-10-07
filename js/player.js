@@ -35,7 +35,20 @@
       this.bindControls();
     }
 
-    load(start, steps) {
+    /**
+     * @param {string[]} start 96-sticker colors (a 3x3 is stored as its equivalent 4x4)
+     * @param {Object[]} steps solver steps
+     * @param {number} size cube size to draw: 3 or 4
+     */
+    load(start, steps, size = 4) {
+      if (this.view.size !== size) {
+        this.view.setSize(size);
+        this.overlay?.attachFrames();
+      }
+      // States and goals are 4x4 sticker indices; convert them for a 3x3 drawing.
+      const T = root.Cube3;
+      this.project = size === 3 ? T.project : (letters) => letters;
+      this.mapGroup = size === 3 ? (g) => [...new Set(g.map(T.index4to3))] : (g) => g;
       this.steps = steps;
       this.states = [start];
       steps.forEach((s) => this.states.push(C.applyAlg(this.states[this.states.length - 1], s.moves)));
@@ -83,7 +96,7 @@
       if (from !== to) {
         this.busy = true;
         this.overlay?.clear();
-        await this.view.tweenColors(from, to, FADE_MS[this.speedIndex()]);
+        await this.view.tweenColors(this.project(from), this.project(to), FADE_MS[this.speedIndex()]);
         this.busy = false;
         if (gen !== this.gen) return false;
       }
@@ -178,7 +191,7 @@
       const s = this.stepOf(pos);
       const done = this.isDone(pos);
       const n = this.steps.length;
-      this.view.setState(this.cubeAt(pos));
+      this.view.setState(this.project(this.cubeAt(pos)));
 
       els.counterSteps.textContent = n ? `Step ${s + 1} of ${n}` : 'Already solved';
       els.counterMoves.textContent = `${this.totalMoves} moves in total`;
@@ -193,7 +206,11 @@
       if (s !== this.focusedStep) {
         this.focusedStep = s;
         const groups = this.steps[s]?.goal.items.flatMap((it) => it.groups) || [];
-        if (groups.length) this.view.focusOnStickers(groups.flatMap((g) => [...g.from, ...g.to]), this.steps[s].focus);
+        if (groups.length) {
+          this.view.focusOnStickers(groups.flatMap((g) => this.mapGroup([...g.from, ...g.to])), this.steps[s].focus);
+        } else {
+          this.view.focus(null);
+        }
       }
     }
 
@@ -206,7 +223,8 @@
       if (!this.overlay) return;
       const step = this.steps[s];
       if (!step) { this.overlay.clear(); return; }
-      const groups = step.goal.items.flatMap((it) => it.groups);
+      const groups = step.goal.items.flatMap((it) => it.groups)
+        .map((g) => ({ from: this.mapGroup(g.from), to: this.mapGroup(g.to) }));
       if (done) this.overlay.showResult(groups.map((g) => g.to));
       else this.overlay.show(groups);
     }
@@ -248,9 +266,10 @@
     }
 
     renderStages() {
+      // Only stages this solution goes through (a 3x3 has no centers or edge pairing).
       this.els.phaseBar.innerHTML = STAGES.map((name, i) => {
-        const has = this.stageOfStep.includes(i);
-        return `<li><button type="button" class="phase" data-stage="${i}" ${has ? '' : 'disabled'}>`
+        if (!this.stageOfStep.includes(i)) return '';
+        return `<li><button type="button" class="phase" data-stage="${i}">`
           + '<span class="phase-track"><span class="phase-fill"></span></span>'
           + `<span class="phase-name">${esc(name)}</span></button></li>`;
       }).join('');

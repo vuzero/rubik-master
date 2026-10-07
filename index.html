@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>4x4 Solve Coach</title>
+  <title>Rubik Solve Coach</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap">
@@ -22,7 +22,7 @@
           <rect x="5" y="23" width="5" height="4" rx="1"/><rect x="11" y="23" width="5" height="4" rx="1"/><rect x="17" y="23" width="5" height="4" rx="1"/><rect x="23" y="23" width="4" height="4" rx="1"/>
         </g>
       </svg>
-      <span>4×4 Solve Coach</span>
+      <span>Rubik Solve Coach</span>
     </div>
     <nav class="modes" aria-label="Mode">
       <button type="button" id="tab-input" class="mode is-active" aria-current="true">1 · Enter colors</button>
@@ -35,9 +35,15 @@
     <section id="input-view" aria-labelledby="input-heading">
       <div class="input-grid">
         <div class="panel net-panel">
-          <div>
-            <h1 id="input-heading">Paint your cube's colors</h1>
-            <p class="lede">Pick a color, then click or drag across the stickers. Each face has 16 stickers; each color appears 16 times.</p>
+          <div class="input-head">
+            <div>
+              <h1 id="input-heading">Paint your cube's colors</h1>
+              <p class="lede" id="input-lede">Pick a color, then click or drag across the stickers. Each face has 16 stickers; each color appears 16 times.</p>
+            </div>
+            <div class="size-switch" role="group" aria-label="Cube size">
+              <button type="button" class="size-btn" data-size="4" aria-pressed="true">4×4</button>
+              <button type="button" class="size-btn" data-size="3" aria-pressed="false">3×3</button>
+            </div>
           </div>
           <ol class="how">
             <li><span class="n">1</span><span>Choose any side as <b>Front</b> and the side above it as <b>Top</b>. Keep that grip while you enter colors.</span></li>
@@ -109,6 +115,7 @@
 
   <script src="js/vendor/three.min.js"></script>
   <script src="js/cube.js"></script>
+  <script src="js/cube3.js"></script>
   <script src="js/pieces.js"></script>
   <script src="js/validate.js"></script>
   <script src="js/solver-centers.js"></script>
@@ -116,6 +123,7 @@
   <script src="js/solver-3x3.js"></script>
   <script src="js/goals.js"></script>
   <script src="js/solver.js"></script>
+  <script src="js/solver3.js"></script>
   <script src="js/notation.js"></script>
   <script src="js/view3d.js"></script>
   <script src="js/goal-overlay.js"></script>

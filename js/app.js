@@ -4,13 +4,37 @@
 (function (root) {
   'use strict';
   const C = root.Cube4;
+  const T = root.Cube3;
   const $ = (id) => document.getElementById(id);
-  const STORAGE_KEY = 'cube4-coach-colors';
+  const SIZE_KEY = 'cube-coach-size';
   const VALIDATE_DELAY_MS = 120;
+
+  // Everything that differs between the two cube sizes. Both solvers return
+  // their start state as 96 stickers (a 3x3 is stored as its equivalent 4x4).
+  const SIZES = {
+    4: {
+      stickers: 96,
+      storageKey: 'cube4-coach-colors',
+      solved: () => C.solvedState(C.DEFAULT_SCHEME),
+      scramble: () => C.applyAlg(C.solvedState(C.DEFAULT_SCHEME), C.randomScramble(40)),
+      check: (c) => root.Validate.analyze(c),
+      solve: (c) => root.Solver.solve(c),
+    },
+    3: {
+      stickers: 54,
+      storageKey: 'cube3-coach-colors',
+      solved: () => T.solved(),
+      scramble: () => T.project(C.applyAlg(T.expand(T.solved()), T.randomScramble(25))),
+      // A full 3x3 solve takes a few milliseconds and also catches flipped or swapped pieces.
+      check: (c) => root.Solver3.solve(c),
+      solve: (c) => root.Solver3.solve(c),
+    },
+  };
 
   const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 
-  const preview = new root.CubeView($('preview3d'));
+  let size = loadSize();
+  const preview = new root.CubeView($('preview3d'), size);
   let solveView = null;
   let player = null;
   let colors = [];
@@ -24,20 +48,27 @@
     status.innerHTML = html;
   }
 
+  function loadSize() {
+    try { return localStorage.getItem(SIZE_KEY) === '3' ? 3 : 4; } catch (e) { return 4; }
+  }
+
   function saveDraft() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(colors)); } catch (e) { /* storage unavailable: drafts just aren't kept */ }
+    try {
+      localStorage.setItem(SIZES[size].storageKey, JSON.stringify(colors));
+      localStorage.setItem(SIZE_KEY, String(size));
+    } catch (e) { /* storage unavailable: drafts just aren't kept */ }
   }
 
   function loadDraft() {
     try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-      if (Array.isArray(saved) && saved.length === C.STICKERS) return saved;
+      const saved = JSON.parse(localStorage.getItem(SIZES[size].storageKey) || 'null');
+      if (Array.isArray(saved) && saved.length === SIZES[size].stickers) return saved;
     } catch (e) { /* ignore unreadable drafts */ }
     return null;
   }
 
   function validateNow() {
-    const result = root.Validate.analyze(colors);
+    const result = SIZES[size].check(colors);
     if (result.ok) {
       setStatus('ok', `${note ? `${esc(note)}<br>` : ''}These colors make a real, solvable cube.`);
     } else {
@@ -49,6 +80,7 @@
   }
 
   const editor = new root.Editor({
+    size,
     paletteEl: $('palette'),
     netEl: $('net'),
     onChange: (next, source) => {
@@ -67,14 +99,39 @@
   });
 
   function loadScramble() {
-    const moves = C.randomScramble(40);
     note = 'Random scramble loaded as an example. Paint over it with your own cube.';
-    editor.setColors(C.applyAlg(C.solvedState(C.DEFAULT_SCHEME), moves));
+    editor.setColors(SIZES[size].scramble());
   }
 
   $('btn-sample').addEventListener('click', loadScramble);
-  $('btn-solved').addEventListener('click', () => { note = ''; editor.setColors(C.solvedState(C.DEFAULT_SCHEME)); });
-  $('btn-clear').addEventListener('click', () => { note = ''; editor.setColors(new Array(C.STICKERS).fill(null)); });
+  $('btn-solved').addEventListener('click', () => { note = ''; editor.setColors(SIZES[size].solved()); });
+  $('btn-clear').addEventListener('click', () => { note = ''; editor.setColors(new Array(SIZES[size].stickers).fill(null)); });
+
+  // ---- cube size ------------------------------------------------------------
+  function renderSize() {
+    document.querySelectorAll('.size-btn').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.size) === size)));
+    const each = size * size;
+    $('input-lede').textContent = `Pick a color, then click or drag across the stickers. Each face has ${each} stickers; each color appears ${each} times.`;
+  }
+
+  function setSize(next) {
+    if (next === size) return;
+    size = next;
+    renderSize();
+    editor.setSize(size);
+    preview.setSize(size);
+    const draft = loadDraft();
+    if (draft) {
+      note = '';
+      editor.setColors(draft);
+    } else {
+      loadScramble();
+    }
+    saveDraft();
+  }
+
+  document.querySelectorAll('.size-btn').forEach((b) => b.addEventListener('click', () => setSize(Number(b.dataset.size))));
+  renderSize();
 
   // ---- modes ----------------------------------------------------------------
   function showMode(mode) {
@@ -126,7 +183,7 @@
     btn.textContent = 'Solving…';
     // Let the button repaint before the (short) synchronous solve.
     setTimeout(() => {
-      const result = root.Solver.solve(colors);
+      const result = SIZES[size].solve(colors);
       btn.disabled = false;
       btn.textContent = 'Solve this cube';
       if (!result.ok) {
@@ -136,7 +193,7 @@
       solution = result;
       $('tab-solve').disabled = false;
       showMode('solve');
-      ensurePlayer().load(colors.slice(), result.steps);
+      ensurePlayer().load(result.start, result.steps, size);
     }, 30);
   });
 

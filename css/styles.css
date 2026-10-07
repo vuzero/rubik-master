@@ -136,6 +136,13 @@ main { max-width: 1240px; margin: 0 auto; }
 /* ---- input view ---- */
 .input-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--gap); align-items: start; }
 .net-panel { display: flex; flex-direction: column; gap: 20px; }
+.input-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px 20px; }
+.size-switch { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--surface-2); border: 2px solid var(--line); }
+.size-btn {
+  border: 0; background: transparent; border-radius: 999px; padding: 8px 16px; cursor: pointer;
+  font: 800 16px/1 var(--font-display); color: var(--muted);
+}
+.size-btn[aria-pressed='true'] { background: var(--accent); color: var(--accent-ink); box-shadow: 0 3px 0 var(--accent-text); }
 
 .how { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; font-size: 14px; color: var(--muted); margin: 0; padding: 0; list-style: none; }
 .how li { display: flex; gap: 10px; min-width: 0; background: var(--surface-2); border-radius: var(--r-md); padding: 10px 12px; }
@@ -172,6 +179,9 @@ main { max-width: 1240px; margin: 0 auto; }
   display: grid; grid-template-columns: repeat(4, var(--sticker)); gap: 3px;
   background: var(--plastic); padding: 4px; border-radius: 10px;
 }
+/* A 3x3 net gets bigger stickers so both nets take the same width. */
+.face-grid.n3 { grid-template-columns: repeat(3, calc(var(--sticker) * 4 / 3 + 1px)); }
+.face-grid.n3 .sticker { width: calc(var(--sticker) * 4 / 3 + 1px); height: calc(var(--sticker) * 4 / 3 + 1px); }
 .sticker {
   width: var(--sticker); height: var(--sticker); border: 0; border-radius: 5px; padding: 0; cursor: crosshair; background: var(--blank);
 }
@@ -205,7 +215,7 @@ main { max-width: 1240px; margin: 0 auto; }
 
 /* ---- solve view: stage journey ---- */
 .journey { display: flex; flex-direction: column; gap: 8px; margin-bottom: var(--gap); }
-.phase-bar { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.phase-bar { list-style: none; margin: 0; padding: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; }
 .phase { display: flex; flex-direction: column; gap: 5px; min-width: 0; cursor: pointer; background: none; border: 0; padding: 0; text-align: left; width: 100%; }
 .phase-track { height: 12px; border-radius: 999px; background: var(--line); overflow: hidden; }
 .phase-fill { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width 0.3s ease; }

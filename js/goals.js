@@ -152,6 +152,7 @@
       case 'permCorners': return 'Move the top corners to their own spots (colors matching the sides).';
       case 'permEdges': return 'Move the top edges to their own spots to finish the cube.';
       case 'swapEdges': return 'Swap two top edges, a move only a 4x4 needs.';
+      case 'hold': return 'Turn the whole cube so the white center is on the bottom, and keep holding it that way.';
       default: return '';
     }
   }
@@ -162,7 +163,9 @@
       : 'Line up the piece and the empty spot.'),
     Insert: () => 'Carry the piece into the center, then put the finished centers back.',
     Moves: (g) => (g.kind === 'center' ? 'Bring the piece into the center.' : 'Bring the edge down next to the white center, side color matching.'),
-    'Turn cube': () => 'Turn the whole cube so the target slot is at the front-right.',
+    'Turn cube': (g) => (g.kind === 'hold'
+      ? 'Turn the whole cube; no layer moves on its own.'
+      : 'Turn the whole cube so the target slot is at the front-right.'),
     Align: () => 'Turn the top layer into the starting position for the next algorithm.',
     'Insert right': () => 'Insert the edge into the right-hand slot of the middle layer.',
     'Insert left': () => 'Insert the edge into the left-hand slot of the middle layer.',

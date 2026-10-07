@@ -26,7 +26,7 @@
 
       const end = C.applyAlg(letters, steps.flatMap((s) => s.moves));
       if (!C.isSolved(end)) throw new Error('Internal check failed: the found solution does not solve the cube.');
-      return { ok: true, steps, scheme: analysis.scheme };
+      return { ok: true, steps, scheme: analysis.scheme, start: letters };
     } catch (err) {
       return { ok: false, errors: [`The solver got stuck (${err.message}). Double-check the colors you entered.`] };
     }

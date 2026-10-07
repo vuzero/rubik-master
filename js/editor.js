@@ -1,5 +1,5 @@
 /*
- * Color input: a palette plus an unfolded net of 6 faces x 16 stickers.
+ * Color input: a palette plus an unfolded net of 6 faces of n x n stickers (n = 3 or 4).
  * Click or drag across stickers to paint them with the selected color.
  */
 (function (root) {
@@ -11,16 +11,26 @@
   const FACE_TITLE = { U: 'Top', L: 'Left', F: 'Front', R: 'Right', B: 'Back', D: 'Bottom' };
 
   class Editor {
-    constructor({ paletteEl, netEl, onChange, onHover }) {
+    constructor({ paletteEl, netEl, onChange, onHover, size = 4 }) {
       this.paletteEl = paletteEl;
       this.netEl = netEl;
       this.onChange = onChange;
       this.onHover = onHover;
-      this.colors = new Array(C.STICKERS).fill(null);
+      this.size = size;
+      this.colors = new Array(6 * size * size).fill(null);
       this.current = 'W';
       this.buildPalette();
       this.buildNet();
+      this.bindPainting();
       this.bindKeys();
+    }
+
+    /** Switch between a 3x3 and a 4x4 net. The caller then sets the colors. */
+    setSize(size) {
+      if (size === this.size) return;
+      this.size = size;
+      this.netEl.innerHTML = '';
+      this.buildNet();
     }
 
     buildPalette() {
@@ -40,6 +50,7 @@
     }
 
     buildNet() {
+      const n = this.size;
       this.cells = [];
       ['U', 'L', 'F', 'R', 'B', 'D'].forEach((face) => {
         const f = C.FACES.indexOf(face);
@@ -48,21 +59,24 @@
         wrap.dataset.face = face;
         wrap.innerHTML = `<div class="face-label">${FACE_TITLE[face]} <b>${face}</b></div>`;
         const grid = document.createElement('div');
-        grid.className = 'face-grid';
-        for (let k = 0; k < 16; k++) {
-          const idx = f * 16 + k;
+        grid.className = `face-grid n${n}`;
+        for (let k = 0; k < n * n; k++) {
+          const idx = f * n * n + k;
           const cell = document.createElement('button');
           cell.type = 'button';
           cell.className = 'sticker';
           cell.dataset.index = String(idx);
-          cell.dataset.where = `${FACE_TITLE[face]} face, row ${Math.floor(k / 4) + 1}, column ${(k % 4) + 1}`;
+          cell.dataset.where = `${FACE_TITLE[face]} face, row ${Math.floor(k / n) + 1}, column ${(k % n) + 1}`;
           grid.appendChild(cell);
           this.cells[idx] = cell;
         }
         wrap.appendChild(grid);
         this.netEl.appendChild(wrap);
       });
+    }
 
+    // Listeners live on the net container, so they survive rebuilding the net.
+    bindPainting() {
       let painting = false;
       const cellAt = (e) => {
         const el = document.elementFromPoint(e.clientX, e.clientY);
@@ -125,11 +139,12 @@
         cell.classList.toggle('blank', !c);
         cell.setAttribute('aria-label', `${cell.dataset.where}: ${c ? NAMES[c] : 'blank'}`);
       });
+      const each = this.size * this.size;
       C.COLORS.forEach((col) => {
         const n = this.colors.filter((c) => c === col).length;
         const el = this.swatches[col].querySelector('.count');
-        el.textContent = `${n}/16`;
-        el.className = `count${n > 16 ? ' over' : n === 16 ? ' full' : ''}`;
+        el.textContent = `${n}/${each}`;
+        el.className = `count${n > each ? ' over' : n === each ? ' full' : ''}`;
       });
     }
   }

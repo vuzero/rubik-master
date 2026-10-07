@@ -1,8 +1,7 @@
 /*
- * Three.js view of the 4x4. Cubies never leave their home slots: a move is
- * animated by rotating the turning layers in a pivot group, then the pivot is
- * reset and the stickers are recolored from the new state. This keeps the
- * picture exactly in sync with the logical state (no floating-point drift).
+ * Three.js view of a 3x3 or 4x4 cube. Cubies never move: the view only
+ * recolors stickers (setState) or fades them from one state to another
+ * (tweenColors), so the picture always matches the logical state exactly.
  */
 (function (root) {
   'use strict';
@@ -11,7 +10,6 @@
   const STICKER_HEX = { W: 0xf4f5f0, Y: 0xffd200, G: 0x00a651, B: 0x0b55c4, R: 0xc8102e, O: 0xff6a13 };
   const BLANK_HEX = 0x6f7885;
   const PLASTIC_HEX = 0x14171c;
-  const AXIS_NAME = ['x', 'y', 'z'];
   // Model rotations [x, y] that bring a face into the camera's view.
   const FOCUS = {
     default: [0.05, -0.12], U: [0.35, -0.12], F: [0.05, -0.12], R: [0.05, -0.55],
@@ -41,8 +39,9 @@
   }
 
   class CubeView {
-    constructor(container) {
+    constructor(container, size = 4) {
       this.container = container;
+      this.size = size;
       this.renderListeners = [];
       this.ok = typeof THREE !== 'undefined' && this.initRenderer();
       if (!this.ok) {
@@ -80,20 +79,34 @@
       this.root = new THREE.Group();
       this.root.rotation.set(0.05, -0.12, 0);
       this.scene.add(this.root);
-      this.pivot = new THREE.Group();
-      this.root.add(this.pivot);
       return true;
     }
 
+    /** Switch between a 3x3 and a 4x4 model; existing sticker colors are reset. */
+    setSize(size) {
+      if (!this.ok || size === this.size) return;
+      this.finishNow();
+      // Sticker materials are per sticker; plastic and goal-frame materials are shared and kept.
+      this.stickers.forEach((m) => m.material.dispose());
+      this.cubies.forEach((cubie) => this.root.remove(cubie));
+      this.size = size;
+      this.buildCube();
+      this.render();
+    }
+
     buildCube() {
+      this.geom = C.geometry(this.size);
+      // Draw both sizes at the same on-screen size: the 4x4 spans 4 units.
+      this.root.scale.setScalar(4 / this.size);
       const cubieGeo = new THREE.BoxGeometry(0.98, 0.98, 0.98);
-      const plastic = new THREE.MeshStandardMaterial({ color: PLASTIC_HEX, roughness: 0.55 });
+      this.plastic = this.plastic || new THREE.MeshStandardMaterial({ color: PLASTIC_HEX, roughness: 0.55 });
+      const plastic = this.plastic;
       const stickerGeo = roundedSquare(0.84, 0.12);
       const zAxis = new THREE.Vector3(0, 0, 1);
       const cubies = new Map();
       this.stickers = [];
 
-      C.GEOM.forEach((g, i) => {
+      this.geom.forEach((g, i) => {
         const key = g.p.join(',');
         let cubie = cubies.get(key);
         if (!cubie) {
@@ -128,40 +141,6 @@
       if (!this.ok) return;
       this.stickers.forEach((m, i) => m.material.emissive.setHex(i === index ? 0x3a3f4a : 0x000000));
       this.render();
-    }
-
-    /** Animate one move. Resolves when done; caller then calls setState(next). */
-    animateMove(token, durationMs) {
-      // No 3D view, or the viewer asked for less motion: keep the pacing, skip the turning.
-      if (!this.ok || reducedMotion()) return this.hold(durationMs);
-      if (durationMs <= 0) return Promise.resolve();
-      this.finishNow();
-      const mv = C.parseToken(token);
-      const angle = (mv.q === 3 ? -1 : mv.q) * (Math.PI / 2);
-      const duration = durationMs * (mv.q === 2 ? 1.45 : 1) * (mv.rotation ? 1.2 : 1);
-      const moving = this.cubies.filter((c) => mv.layers.includes(c.userData.p[mv.axis]));
-      const axisName = AXIS_NAME[mv.axis];
-      moving.forEach((c) => this.pivot.add(c));
-
-      return new Promise((resolve) => {
-        const start = performance.now();
-        const done = () => {
-          moving.forEach((c) => this.root.add(c));
-          this.pivot.rotation.set(0, 0, 0);
-          this.active = null;
-          resolve();
-        };
-        this.active = { done };
-        const tick = (now) => {
-          if (this.active?.done !== done) return;
-          const t = Math.min(1, (now - start) / duration);
-          this.pivot.rotation[axisName] = angle * ease(t);
-          this.render();
-          if (t < 1) requestAnimationFrame(tick);
-          else done();
-        };
-        requestAnimationFrame(tick);
-      });
     }
 
     finishNow() {
@@ -268,7 +247,7 @@
     focusOnStickers(indices, face, durationMs = 600) {
       if (!this.ok) return;
       const camDir = this.camera.position.clone().normalize();
-      const normals = indices.map((i) => new THREE.Vector3(...C.GEOM[i].n));
+      const normals = indices.map((i) => new THREE.Vector3(...this.geom[i].n));
       const preferred = FOCUS[face] || FOCUS.default;
       const cur = this.root.rotation;
       let best = null;

@@ -20,32 +20,42 @@
   // Axis index and sign of each face's outward normal.
   const FACE_AXIS = { U: [1, 1], D: [1, -1], R: [0, 1], L: [0, -1], F: [2, 1], B: [2, -1] };
 
-  function stickerGeom(face, r, c) {
+  // Sticker geometry for an n x n cube. Coordinates step by 2, so they stay
+  // integers: {-3,-1,1,3} for a 4x4, {-2,0,2} for a 3x3.
+  function stickerGeom(face, r, c, n = N) {
+    const m = n - 1;
+    const a = -m + 2 * c;
+    const b = m - 2 * r;
     switch (face) {
-      case 'U': return { p: [-3 + 2 * c, 3, -3 + 2 * r], n: [0, 1, 0] };
-      case 'D': return { p: [-3 + 2 * c, -3, 3 - 2 * r], n: [0, -1, 0] };
-      case 'F': return { p: [-3 + 2 * c, 3 - 2 * r, 3], n: [0, 0, 1] };
-      case 'B': return { p: [3 - 2 * c, 3 - 2 * r, -3], n: [0, 0, -1] };
-      case 'R': return { p: [3, 3 - 2 * r, 3 - 2 * c], n: [1, 0, 0] };
-      case 'L': return { p: [-3, 3 - 2 * r, -3 + 2 * c], n: [-1, 0, 0] };
+      case 'U': return { p: [a, m, -m + 2 * r], n: [0, 1, 0] };
+      case 'D': return { p: [a, -m, m - 2 * r], n: [0, -1, 0] };
+      case 'F': return { p: [a, b, m], n: [0, 0, 1] };
+      case 'B': return { p: [m - 2 * c, b, -m], n: [0, 0, -1] };
+      case 'R': return { p: [m, b, m - 2 * c], n: [1, 0, 0] };
+      case 'L': return { p: [-m, b, -m + 2 * c], n: [-1, 0, 0] };
       default: throw new Error('Unknown face ' + face);
     }
   }
 
-  const GEOM = [];
-  const KEY_TO_INDEX = new Map();
   const geomKey = (p, n) => p.join(',') + '|' + n.join(',');
+  const GEOMETRY_CACHE = new Map();
 
-  FACES.forEach((face, f) => {
-    for (let r = 0; r < N; r++) {
-      for (let c = 0; c < N; c++) {
-        const g = stickerGeom(face, r, c);
-        const idx = f * 16 + r * 4 + c;
-        GEOM[idx] = { ...g, face, f, r, c };
-        KEY_TO_INDEX.set(geomKey(g.p, g.n), idx);
-      }
+  /** Stickers of an n x n cube: index = face * n*n + row * n + col. */
+  function geometry(n) {
+    if (!GEOMETRY_CACHE.has(n)) {
+      const geom = [];
+      FACES.forEach((face, f) => {
+        for (let r = 0; r < n; r++) {
+          for (let c = 0; c < n; c++) geom[f * n * n + r * n + c] = { ...stickerGeom(face, r, c, n), face, f, r, c };
+        }
+      });
+      GEOMETRY_CACHE.set(n, geom);
     }
-  });
+    return GEOMETRY_CACHE.get(n);
+  }
+
+  const GEOM = geometry(N);
+  const KEY_TO_INDEX = new Map(GEOM.map((g, i) => [geomKey(g.p, g.n), i]));
 
   // Rotate vector v by +90deg (right-hand rule) about axis, q times.
   function rot(v, axis, q) {
@@ -195,7 +205,7 @@
   }
 
   root.Cube4 = {
-    FACES, COLORS, N, STICKERS, FACE_AXIS, GEOM, KEY_TO_INDEX, DEFAULT_SCHEME,
+    FACES, COLORS, N, STICKERS, FACE_AXIS, GEOM, KEY_TO_INDEX, DEFAULT_SCHEME, geometry,
     geomKey, rot, parseToken, getMove, splitAlg, applyMove, applyAlg,
     invertToken, invertAlg, simplify, solvedState, isSolved, randomScramble,
   };

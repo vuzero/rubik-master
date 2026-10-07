@@ -10,7 +10,6 @@
  */
 (function (root) {
   'use strict';
-  const C = root.Cube4;
 
   const SRC_HEX = 0x8b5cf6;
   const DST_HEX = 0x19d3ff;
@@ -20,7 +19,7 @@
   const LABEL_GAP_PX = 40; // minimum distance from sticker to label
   const CLEAR_PX = 16; // labels sit at least this far outside the cube's outline
   const LABEL_H = 26;
-  const CUBE_CORNERS = [-2, 2].flatMap((x) => [-2, 2].flatMap((y) => [-2, 2].map((z) => [x, y, z])));
+  const cubeCorners = (h) => [-h, h].flatMap((x) => [-h, h].flatMap((y) => [-h, h].map((z) => [x, y, z])));
   const MERGE_UNITS = 1.2; // destinations closer than this share one "To" label
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -46,11 +45,11 @@
   }
 
   // Point just above a group of stickers, in the cube's own (home) frame.
-  function groupAnchor(group) {
+  function groupAnchor(group, geom) {
     const p = new THREE.Vector3();
     const n = new THREE.Vector3();
     group.forEach((i) => {
-      const g = C.GEOM[i];
+      const g = geom[i];
       const normal = new THREE.Vector3(...g.n);
       p.add(new THREE.Vector3(g.p[0] / 2, g.p[1] / 2, g.p[2] / 2).addScaledVector(normal, 0.5));
       n.add(normal);
@@ -66,20 +65,12 @@
       this.view = view;
       this.labels = [];
       if (!view.ok) return;
-      const srcGeo = roundedRing(0.9, 0.62, 0.14);
-      const dstGeo = roundedRing(1.06, 0.9, 0.2);
-      const srcMat = new THREE.MeshBasicMaterial({ color: SRC_HEX });
-      const dstMat = new THREE.MeshBasicMaterial({ color: DST_HEX });
+      this.srcGeo = roundedRing(0.9, 0.62, 0.14);
+      this.dstGeo = roundedRing(1.06, 0.9, 0.2);
+      this.srcMat = new THREE.MeshBasicMaterial({ color: SRC_HEX });
+      this.dstMat = new THREE.MeshBasicMaterial({ color: DST_HEX });
       this.arrowMat = new THREE.MeshBasicMaterial({ color: SRC_HEX, transparent: true, opacity: 0.9 });
-      const frames = (geo, mat, z) => view.stickers.map((sticker) => {
-        const m = new THREE.Mesh(geo, mat);
-        m.position.z = z;
-        m.visible = false;
-        sticker.add(m);
-        return m;
-      });
-      this.src = frames(srcGeo, srcMat, 0.008);
-      this.dst = frames(dstGeo, dstMat, 0.004);
+      this.attachFrames();
       this.arrows = new THREE.Group();
       view.root.add(this.arrows);
 
@@ -88,6 +79,20 @@
       this.svg.setAttribute('aria-hidden', 'true');
       view.container.appendChild(this.svg);
       view.onRender(() => this.placeLabels());
+    }
+
+    /** Give every sticker its (hidden) frames; call again after the view changes size. */
+    attachFrames() {
+      if (!this.view.ok) return;
+      const frames = (geo, mat, z) => this.view.stickers.map((sticker) => {
+        const m = new THREE.Mesh(geo, mat);
+        m.position.z = z;
+        m.visible = false;
+        sticker.add(m);
+        return m;
+      });
+      this.src = frames(this.srcGeo, this.srcMat, 0.008);
+      this.dst = frames(this.dstGeo, this.dstMat, 0.004);
     }
 
     /** @param {{from: number[], to: number[]}[]} moves piece groups: where each is now, where it must go */
@@ -138,8 +143,8 @@
 
     addArrow(fromGroup, toGroup) {
       if (sameSlots(fromGroup, toGroup)) return;
-      const a = groupAnchor(fromGroup);
-      const b = groupAnchor(toGroup);
+      const a = groupAnchor(fromGroup, this.view.geom);
+      const b = groupAnchor(toGroup, this.view.geom);
       const dist = a.distanceTo(b);
       if (dist < 0.05) return;
 
@@ -190,7 +195,7 @@
     mergeTargets(groups) {
       const targets = [];
       groups.forEach((g, k) => {
-        const anchor = groupAnchor(g);
+        const anchor = groupAnchor(g, this.view.geom);
         const near = targets.find((t) => t.anchor.distanceTo(anchor) < MERGE_UNITS);
         if (near) { near.groups.push(g); near.nums.push(k + 1); } else targets.push({ anchor, groups: [g], nums: [k + 1] });
       });
@@ -239,7 +244,7 @@
       this.view.root.updateMatrixWorld();
       const center = toScreen(new THREE.Vector3().applyMatrix4(this.view.root.matrixWorld));
       // Radius of the cube's outline on screen, so labels can be kept outside it.
-      const outline = Math.max(...CUBE_CORNERS.map((c) => {
+      const outline = Math.max(...cubeCorners(this.view.size / 2).map((c) => {
         const p = toScreen(new THREE.Vector3(...c).applyMatrix4(this.view.root.matrixWorld));
         return Math.hypot(p.x - center.x, p.y - center.y);
       }));
