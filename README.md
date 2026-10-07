@@ -49,6 +49,7 @@ Upload it either way:
 
 - **Dashboard:** Workers & Pages → Create → Pages → *Upload assets* → drag in `rubik-solver-cloudflare.zip` (or the `dist` folder) → Deploy.
 - **CLI:** `npx wrangler pages deploy dist --project-name=rubik-solver` (log in once with `npx wrangler login`).
+- **Git (auto-deploy on every push):** Workers & Pages → Create → Pages → *Connect to Git* → `vuzero/rubik-solver`. Build command `node tools/build-cloudflare.mjs`, build output directory `dist`. No install step or framework preset is needed.
 
 ## Files
 

@@ -1,8 +1,11 @@
 /*
- * Builds dist/ (a static site ready for Cloudflare Pages) and
- * rubik-solver-cloudflare.zip.
+ * Builds dist/ (a static site ready for Cloudflare Pages) and, for manual
+ * uploads, rubik-solver-cloudflare.zip.
  *
  *   node tools/build-cloudflare.mjs
+ *
+ * Cloudflare Pages Git settings: build command `node tools/build-cloudflare.mjs`,
+ * build output directory `dist`.
  *
  * Local CSS/JS references in index.html get a ?v=<content hash> suffix, so
  * browsers pick up new versions right away while _headers lets them cache
@@ -51,6 +54,15 @@ const html = readFileSync(join(root, 'index.html'), 'utf8').replace(
 writeFileSync(join(dist, 'index.html'), html);
 writeFileSync(join(dist, '_headers'), HEADERS);
 
-if (existsSync(zipPath)) rmSync(zipPath);
-execFileSync('zip', ['-qr', zipPath, '.', '-x', '.DS_Store'], { cwd: dist });
-console.log(`Built ${dist}\nZipped ${zipPath}`);
+console.log(`Built ${dist}`);
+
+// The zip is only for manual uploads. Cloudflare's Git builds (CF_PAGES=1) deploy dist/ directly.
+if (!process.env.CF_PAGES) {
+  if (existsSync(zipPath)) rmSync(zipPath);
+  try {
+    execFileSync('zip', ['-qr', zipPath, '.', '-x', '.DS_Store'], { cwd: dist });
+    console.log(`Zipped ${zipPath}`);
+  } catch (err) {
+    console.warn(`Skipped the zip (${err.message.split('\n')[0]}); upload the dist/ folder instead.`);
+  }
+}
