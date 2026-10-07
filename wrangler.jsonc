@@ -1,0 +1,9 @@
+// Cloudflare Workers static-assets deploy (used by `npx wrangler deploy` and Workers Builds).
+// Build first with `node tools/build-cloudflare.mjs`; dist/_headers is applied automatically.
+{
+  "name": "rubik-master",
+  "compatibility_date": "2025-10-01",
+  "assets": {
+    "directory": "./dist"
+  }
+}

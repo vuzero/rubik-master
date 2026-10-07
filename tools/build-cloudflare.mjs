@@ -56,8 +56,9 @@ writeFileSync(join(dist, '_headers'), HEADERS);
 
 console.log(`Built ${dist}`);
 
-// The zip is only for manual uploads. Cloudflare's Git builds (CF_PAGES=1) deploy dist/ directly.
-if (!process.env.CF_PAGES) {
+// The zip is only for manual uploads. Cloudflare's Git builds (Pages: CF_PAGES, Workers: WORKERS_CI)
+// deploy dist/ directly.
+if (!process.env.CF_PAGES && !process.env.WORKERS_CI) {
   if (existsSync(zipPath)) rmSync(zipPath);
   try {
     execFileSync('zip', ['-qr', zipPath, '.', '-x', '.DS_Store'], { cwd: dist });
