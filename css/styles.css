@@ -179,9 +179,11 @@ main { max-width: 1240px; margin: 0 auto; }
   display: grid; grid-template-columns: repeat(4, var(--sticker)); gap: 3px;
   background: var(--plastic); padding: 4px; border-radius: 10px;
 }
-/* A 3x3 net gets bigger stickers so both nets take the same width. */
+/* Smaller cubes get bigger stickers so every net takes the same width. */
 .face-grid.n3 { grid-template-columns: repeat(3, calc(var(--sticker) * 4 / 3 + 1px)); }
 .face-grid.n3 .sticker { width: calc(var(--sticker) * 4 / 3 + 1px); height: calc(var(--sticker) * 4 / 3 + 1px); }
+.face-grid.n2 { grid-template-columns: repeat(2, calc(var(--sticker) * 2 + 3px)); }
+.face-grid.n2 .sticker { width: calc(var(--sticker) * 2 + 3px); height: calc(var(--sticker) * 2 + 3px); }
 .sticker {
   width: var(--sticker); height: var(--sticker); border: 0; border-radius: 5px; padding: 0; cursor: crosshair; background: var(--blank);
 }

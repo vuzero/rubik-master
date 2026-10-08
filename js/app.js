@@ -5,12 +5,13 @@
   'use strict';
   const C = root.Cube4;
   const T = root.Cube3;
+  const T2 = root.Cube2;
   const $ = (id) => document.getElementById(id);
   const SIZE_KEY = 'cube-coach-size';
   const VALIDATE_DELAY_MS = 120;
 
-  // Everything that differs between the two cube sizes. Both solvers return
-  // their start state as 96 stickers (a 3x3 is stored as its equivalent 4x4).
+  // Everything that differs between the cube sizes. Every solver returns its
+  // start state as 96 stickers (a 2x2 or 3x3 is stored as an equivalent 4x4).
   const SIZES = {
     4: {
       stickers: 96,
@@ -28,6 +29,14 @@
       // A full 3x3 solve takes a few milliseconds and also catches flipped or swapped pieces.
       check: (c) => root.Solver3.solve(c),
       solve: (c) => root.Solver3.solve(c),
+    },
+    2: {
+      stickers: 24,
+      storageKey: 'cube2-coach-colors',
+      solved: () => T2.solved(),
+      scramble: () => T2.project(C.applyAlg(T2.expand(T2.solved(), C.DEFAULT_SCHEME), T2.randomScramble(15))),
+      check: (c) => root.Solver2.solve(c),
+      solve: (c) => root.Solver2.solve(c),
     },
   };
 
@@ -49,7 +58,10 @@
   }
 
   function loadSize() {
-    try { return localStorage.getItem(SIZE_KEY) === '3' ? 3 : 4; } catch (e) { return 4; }
+    try {
+      const saved = Number(localStorage.getItem(SIZE_KEY));
+      return SIZES[saved] ? saved : 4;
+    } catch (e) { return 4; }
   }
 
   function saveDraft() {

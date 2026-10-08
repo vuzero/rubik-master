@@ -1,6 +1,6 @@
 # Rubik Solve Coach
 
-A browser app that solves a 3×3 or 4×4 Rubik's cube from the colors you enter, then walks you through the solution step by step on a 3D model. Pick the size with the 3×3 / 4×4 switch above the color net.
+A browser app that solves a 2×2, 3×3 or 4×4 Rubik's cube from the colors you enter, then walks you through the solution step by step on a 3D model. Pick the size with the 4×4 / 3×3 / 2×2 switch above the color net.
 
 ## Run
 
@@ -33,6 +33,12 @@ All moves use standard WCA notation (`R`, `R'`, `R2`, `Rw`, `x y z`). Every move
 A 3×3 is a 4×4 whose centers are already built and whose edges are already paired. The app stores every cube as a 4×4: a 3×3 is expanded on the way in (`js/cube3.js`), solved with the layer-by-layer stage only, and projected back to 3×3 for drawing. If the white center is not on the bottom, the first step is a whole-cube turn that puts it there.
 
 The 3×3 check is stricter than the 4×4 one: 9 stickers of each color, six different centers, and no flipped edge or swapped pair of pieces. Those last two are legal on a 4×4 (parity) but impossible on a 3×3, so they point to a mistake in the entered colors.
+
+## 2×2 cubes
+
+A 2×2 is the eight corners of a 4×4. It has no centers, so the solver picks one white corner as the **anchor**: the first step turns the whole cube so that corner sits on the bottom with white facing down (the hold that leaves the most white corners already solved, with the fewest turns). The anchor's colors decide which color belongs on each side; `js/cube2.js` fills in matching centers and edges so the cube can be stored as a 4×4, and only the corners are drawn.
+
+The solve uses the corner steps of the layer-by-layer stage: white corners with `R U R' U'`, the yellow face with Sunes, then the last corners with A-perms. A 2×2 can have two swapped corners (there are no edges to balance them), and the A-perm step handles that. The check needs 4 stickers of each color, three different colors on every corner, and no twisted corner.
 
 ## Plan, then result
 
@@ -70,10 +76,12 @@ index.html          page markup
 css/styles.css      styles (light and dark)
 js/cube.js          96-sticker cube model, move notation, geometry for any size
 js/cube3.js         3x3 <-> 4x4 conversion and 3x3 scrambles
+js/cube2.js         2x2 <-> 4x4 conversion (corners only)
 js/pieces.js        corners, edges, centers geometry
 js/validate.js      checks the entered colors are a real, solvable cube
 js/solver-*.js      the three solving stages; js/solver.js runs them in order
 js/solver3.js       3x3 solve: input checks, white-down turn, layer-by-layer stage
+js/solver2.js       2x2 solve: input checks, anchor corner, corner steps of that stage
 js/goals.js         works out each step's goal: which piece goes from where to where
 js/goal-overlay.js  draws goal frames and arrows on the 3D cube
 js/view3d.js        three.js view; animates one move at a time
@@ -90,6 +98,9 @@ tests/              node test: validation cases + random solves
 ```bash
 node tests/solver.test.js 200
 node tests/solver3.test.js 200
+node tests/solver2.test.js 200
 ```
+
+The 2×2 test checks blank, miscounted, impossible and twisted inputs are rejected, that two swapped corners still solve, and solves random 2×2 scrambles held every way and in a non-standard color scheme.
 
 The 3×3 test checks blank, flipped, swapped and twisted inputs are rejected and solves random 3×3 scrambles with the white center starting on every face. The 4×4 test checks the validator on broken cubes, then solves 200 random scrambles and confirms each solution actually solves the cube, uses WCA moves only, and that every step's goal piece really lands on the destination it announces.

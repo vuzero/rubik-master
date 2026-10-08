@@ -36,19 +36,25 @@
     }
 
     /**
-     * @param {string[]} start 96-sticker colors (a 3x3 is stored as its equivalent 4x4)
+     * @param {string[]} start 96-sticker colors (a 2x2 or 3x3 is stored as an equivalent 4x4)
      * @param {Object[]} steps solver steps
-     * @param {number} size cube size to draw: 3 or 4
+     * @param {number} size cube size to draw: 2, 3 or 4
      */
     load(start, steps, size = 4) {
       if (this.view.size !== size) {
         this.view.setSize(size);
         this.overlay?.attachFrames();
       }
-      // States and goals are 4x4 sticker indices; convert them for a 3x3 drawing.
-      const T = root.Cube3;
-      this.project = size === 3 ? T.project : (letters) => letters;
-      this.mapGroup = size === 3 ? (g) => [...new Set(g.map(T.index4to3))] : (g) => g;
+      // States and goals are 4x4 sticker indices; convert them for a smaller drawing.
+      if (size === 4) {
+        this.project = (letters) => letters;
+        this.mapGroup = (g) => g;
+      } else {
+        const T = size === 3 ? root.Cube3 : root.Cube2;
+        const toSmall = size === 3 ? T.index4to3 : T.index4to2;
+        this.project = T.project;
+        this.mapGroup = (g) => [...new Set(g.map(toSmall))].filter((i) => i >= 0);
+      }
       this.steps = steps;
       this.states = [start];
       steps.forEach((s) => this.states.push(C.applyAlg(this.states[this.states.length - 1], s.moves)));
@@ -266,9 +272,12 @@
     }
 
     renderStages() {
-      // Only stages this solution goes through (a 3x3 has no centers or edge pairing).
-      this.els.phaseBar.innerHTML = STAGES.map((name, i) => {
+      // Only stages this solution goes through (a 3x3 has no centers or edge pairing,
+      // a 2x2 has no middle layer either).
+      const middle = this.steps.some((st) => st.phase === 'Layer 2');
+      this.els.phaseBar.innerHTML = STAGES.map((stage, i) => {
         if (!this.stageOfStep.includes(i)) return '';
+        const name = i === STAGE_OF_PHASE['Layer 1'] && !middle ? 'Layer 1' : stage;
         return `<li><button type="button" class="phase" data-stage="${i}">`
           + '<span class="phase-track"><span class="phase-fill"></span></span>'
           + `<span class="phase-name">${esc(name)}</span></button></li>`;

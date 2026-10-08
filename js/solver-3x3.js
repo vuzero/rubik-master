@@ -230,6 +230,47 @@
     return { state: cur, done: [...firstLayer, ...edges] };
   }
 
+  const topCornersDone = (s) => topCorners.every((c) => pieceSolved(s, c.idx));
+
+  // Yellow face with up to three Sunes. `keep` lists what the Sunes must leave intact.
+  function orientTopCorners(state, keep, steps) {
+    let cur = state;
+    if (orientedCorners(cur) === 4) return cur;
+    const oneSune = AUF.map((a) => [{ label: 'Align', moves: a }, { label: 'Sune', moves: split(ALG.sune) }]);
+    const goalAll = (s) => keep(s) && orientedCorners(s) === 4;
+    const plans = [1, 2, 3].map((n) => product(...Array(n).fill(oneSune)).map((p) => p.flat()));
+    const plan = plans.map((cands) => bestCandidate(cur, cands, goalAll)).find(Boolean);
+    if (!plan) throw new Error('Yellow corners failed.');
+    const pairs = [];
+    for (let i = 0; i < plan.parts.length; i++) {
+      if (plan.parts[i].label === 'Align') { pairs.push([plan.parts[i], plan.parts[i + 1]]); i++; } else pairs.push([plan.parts[i]]);
+    }
+    pairs.forEach((parts, i) => {
+      const moves = parts.flatMap((p) => p.moves);
+      cur = pushStep(steps, 'Yellow top', `Yellow corners · Sune ${i + 1}/${pairs.length}`,
+        i === pairs.length - 1
+          ? 'Turn the top as shown, then do the Sune. This one finishes the yellow face.'
+          : 'Turn the top as shown, then do the Sune. The yellow corners are not done yet; another Sune follows.',
+        { parts, moves, state: P.applyTokens(cur, moves) }, { kind: 'orientCorners' });
+    });
+    return cur;
+  }
+
+  // Top corners to their spots with up to two A-perms, then line up the top.
+  function permuteTopCorners(state, keep, steps) {
+    if (topCornersDone(state)) return state;
+    const aPart = (a) => [{ label: 'Align', moves: a }, { label: 'A-perm', moves: split(ALG.aPerm) }];
+    const cands = [
+      ...AUF.map((d) => [{ label: 'Align', moves: d }]),
+      ...product(AUF, AUF).map(([a, d]) => [...aPart(a), { label: 'Finish', moves: d }]),
+      ...product(AUF, AUF, AUF).map(([a, b, d]) => [...aPart(a), ...aPart(b), { label: 'Finish', moves: d }]),
+    ];
+    const f = bestCandidate(state, cands, (s) => keep(s) && orientedCorners(s) === 4 && topCornersDone(s));
+    if (!f) throw new Error('Corner permutation failed.');
+    return pushStep(steps, 'Last layer', 'Place yellow corners',
+      'Look for two top corners with the same color on one side ("headlights"). Turn the top so they are at the back, then do the A-perm. With no headlights, do it once from anywhere and look again.', f, { kind: 'permCorners' });
+  }
+
   function solveLastLayer(state, f2l, steps) {
     let cur = state;
     const keepF2L = (s) => reduced(s) && allSolved(s, f2l);
@@ -251,39 +292,9 @@
         `${shape}. Turn the top so the shape sits as shown (line left-right, or L at the back-left), then run the algorithm.`, f, { kind: 'orientEdges' });
     }
 
-    if (orientedCorners(cur) < 4) {
-      const oneSune = AUF.map((a) => [{ label: 'Align', moves: a }, { label: 'Sune', moves: split(ALG.sune) }]);
-      const goalAll = (s) => keepF2L(s) && orientedEdges(s) === 4 && orientedCorners(s) === 4;
-      const plans = [1, 2, 3].map((n) => product(...Array(n).fill(oneSune)).map((p) => p.flat()));
-      const plan = plans.map((cands) => bestCandidate(cur, cands, goalAll)).find(Boolean);
-      if (!plan) throw new Error('Yellow corners failed.');
-      const pairs = [];
-      for (let i = 0; i < plan.parts.length; i++) {
-        if (plan.parts[i].label === 'Align') { pairs.push([plan.parts[i], plan.parts[i + 1]]); i++; } else pairs.push([plan.parts[i]]);
-      }
-      pairs.forEach((parts, i) => {
-        const moves = parts.flatMap((p) => p.moves);
-        cur = pushStep(steps, 'Yellow top', `Yellow corners · Sune ${i + 1}/${pairs.length}`,
-          i === pairs.length - 1
-            ? 'Turn the top as shown, then do the Sune. This one finishes the yellow face.'
-            : 'Turn the top as shown, then do the Sune. The yellow corners are not done yet; another Sune follows.',
-          { parts, moves, state: P.applyTokens(cur, moves) }, { kind: 'orientCorners' });
-      });
-    }
-
-    const cornersDone = (s) => topCorners.every((c) => pieceSolved(s, c.idx));
-    if (!cornersDone(cur)) {
-      const aPart = (a) => [{ label: 'Align', moves: a }, { label: 'A-perm', moves: split(ALG.aPerm) }];
-      const cands = [
-        ...AUF.map((d) => [{ label: 'Align', moves: d }]),
-        ...product(AUF, AUF).map(([a, d]) => [...aPart(a), { label: 'Finish', moves: d }]),
-        ...product(AUF, AUF, AUF).map(([a, b, d]) => [...aPart(a), ...aPart(b), { label: 'Finish', moves: d }]),
-      ];
-      const f = bestCandidate(cur, cands, (s) => keepF2L(s) && orientedCorners(s) === 4 && cornersDone(s));
-      if (!f) throw new Error('Corner permutation failed.');
-      cur = pushStep(steps, 'Last layer', 'Place yellow corners',
-        'Look for two top corners with the same color on one side ("headlights"). Turn the top so they are at the back, then do the A-perm. With no headlights, do it once from anywhere and look again.', f, { kind: 'permCorners' });
-    }
+    const keepEdges = (s) => keepF2L(s) && orientedEdges(s) === 4;
+    cur = orientTopCorners(cur, keepEdges, steps);
+    cur = permuteTopCorners(cur, keepEdges, steps);
 
     const finish = (s) => C.isSolved(P.decode(s));
     if (!finish(cur)) {
@@ -296,7 +307,7 @@
       let f = bestCandidate(cur, finishCands, finish);
       if (!f) {
         const parityCands = product(AUF, AUF).map(([a, d]) => [{ label: 'Align', moves: a }, { label: 'PLL parity', moves: split(ALG.pllParity) }, { label: 'Restore', moves: d }]);
-        const p = bestCandidate(cur, parityCands, (s) => cornersDone(s) && keepF2L(s) && !!bestCandidate(s, finishCands, finish));
+        const p = bestCandidate(cur, parityCands, (s) => topCornersDone(s) && keepF2L(s) && !!bestCandidate(s, finishCands, finish));
         if (!p) throw new Error('PLL parity failed.');
         cur = pushStep(steps, 'Parity', 'Fix PLL parity',
           'Two top edges need to swap places, which is impossible on a 3x3. Put the two edges at front and back and run the PLL parity algorithm.', p, { kind: 'swapEdges' });
@@ -317,5 +328,5 @@
     return { state: final, steps };
   }
 
-  root.Solver3x3 = { solve3x3, ALG };
+  root.Solver3x3 = { solve3x3, solveFirstCorners, orientTopCorners, permuteTopCorners, ALG };
 })(typeof window !== 'undefined' ? window : globalThis);

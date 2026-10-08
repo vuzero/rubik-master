@@ -1,5 +1,5 @@
 /*
- * Color input: a palette plus an unfolded net of 6 faces of n x n stickers (n = 3 or 4).
+ * Color input: a palette plus an unfolded net of 6 faces of n x n stickers (n = 2, 3 or 4).
  * Click or drag across stickers to paint them with the selected color.
  */
 (function (root) {
@@ -25,7 +25,7 @@
       this.bindKeys();
     }
 
-    /** Switch between a 3x3 and a 4x4 net. The caller then sets the colors. */
+    /** Switch to a 2x2, 3x3 or 4x4 net. The caller then sets the colors. */
     setSize(size) {
       if (size === this.size) return;
       this.size = size;

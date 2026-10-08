@@ -103,6 +103,7 @@
       return [[findByColors(end, groups, goal.colors)]];
     },
     extract(...args) { return TARGETS.piece(...args); },
+    anchor(...args) { return TARGETS.piece(...args); },
     flipEdge: (...args) => TARGETS.orientEdges(...args),
     orientEdges(start, end, src) {
       const top = center(end, 'U');
@@ -153,6 +154,7 @@
       case 'permEdges': return 'Move the top edges to their own spots to finish the cube.';
       case 'swapEdges': return 'Swap two top edges, a move only a 4x4 needs.';
       case 'hold': return 'Turn the whole cube so the white center is on the bottom, and keep holding it that way.';
+      case 'anchor': return `Turn the whole cube so the ${items[0].name} is on the bottom, white facing down. The other corners line up with it.`;
       default: return '';
     }
   }
@@ -163,7 +165,7 @@
       : 'Line up the piece and the empty spot.'),
     Insert: () => 'Carry the piece into the center, then put the finished centers back.',
     Moves: (g) => (g.kind === 'center' ? 'Bring the piece into the center.' : 'Bring the edge down next to the white center, side color matching.'),
-    'Turn cube': (g) => (g.kind === 'hold'
+    'Turn cube': (g) => (g.kind === 'hold' || g.kind === 'anchor'
       ? 'Turn the whole cube; no layer moves on its own.'
       : 'Turn the whole cube so the target slot is at the front-right.'),
     Align: () => 'Turn the top layer into the starting position for the next algorithm.',
@@ -201,8 +203,9 @@
       const goal = step.goal || {};
       const src = sourceMap(step.moves);
       const targets = TARGETS[goal.kind] ? TARGETS[goal.kind](state, end, src, goal) : [];
+      // An anchor step is only a whole-cube turn: name where the corner starts in the hand.
       const leadingTurns = [];
-      for (const t of step.moves) { if (/^[xyz]/.test(t)) leadingTurns.push(t); else break; }
+      for (const t of step.moves) { if (goal.kind !== 'anchor' && /^[xyz]/.test(t)) leadingTurns.push(t); else break; }
       const items = targets.filter((t) => t.every(Boolean)).map((t) => item(state, end, src, t, leadingTurns));
       const parts = step.parts.map((p) => ({ ...p, why: partWhy(p.label, goal) }));
       state = end;

@@ -1,5 +1,5 @@
 /*
- * Three.js view of a 3x3 or 4x4 cube. Cubies never move: the view only
+ * Three.js view of a 2x2, 3x3 or 4x4 cube. Cubies never move: the view only
  * recolors stickers (setState) or fades them from one state to another
  * (tweenColors), so the picture always matches the logical state exactly.
  */
@@ -82,7 +82,7 @@
       return true;
     }
 
-    /** Switch between a 3x3 and a 4x4 model; existing sticker colors are reset. */
+    /** Switch to a 2x2, 3x3 or 4x4 model; existing sticker colors are reset. */
     setSize(size) {
       if (!this.ok || size === this.size) return;
       this.finishNow();
@@ -96,7 +96,7 @@
 
     buildCube() {
       this.geom = C.geometry(this.size);
-      // Draw both sizes at the same on-screen size: the 4x4 spans 4 units.
+      // Draw every size at the same on-screen size: the 4x4 spans 4 units.
       this.root.scale.setScalar(4 / this.size);
       const cubieGeo = new THREE.BoxGeometry(0.98, 0.98, 0.98);
       this.plastic = this.plastic || new THREE.MeshStandardMaterial({ color: PLASTIC_HEX, roughness: 0.55 });
