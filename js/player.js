@@ -2,9 +2,9 @@
  * Step-by-step playback of a solution.
  *
  * The cube shows the current step as it starts: From → To labels and arrows
- * mark which piece goes where, and the dock lists the moves to do. "Show
- * result" fades the cube to its state after the step (destinations marked
- * "Done"); pressing it again fades back. Next and Back move one whole step.
+ * mark which piece goes where, and the dock lists the moves to do. The
+ * Before / After switch fades the cube to its state after the step
+ * (destinations marked "Done") and back. Next and Back move one whole step.
  * Step n (one past the last step) is the solved cube.
  */
 (function (root) {
@@ -15,6 +15,10 @@
   const STAGES = ['Centers', 'Edges', 'Layers 1–2', 'Yellow top', 'Last layer'];
   const STAGE_OF_PHASE = { Centers: 0, Edges: 1, 'Layer 1': 2, 'Layer 2': 2, 'Yellow top': 3, 'Last layer': 4 };
   const MAX_ROUTES = 2;
+  const CHEVRON = {
+    left: '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
+    right: '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>',
+  };
 
   const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 
@@ -111,6 +115,7 @@
     next() { return this.enqueue(() => this.go(this.step + 1, false)); }
     back() { return this.enqueue(() => this.go(this.step - 1, false)); }
     toggleResult() { return this.enqueue(() => this.go(this.step, !this.result)); }
+    showResult(on) { return this.enqueue(() => this.go(this.step, on)); }
 
     jumpTo(step) {
       this.gen++;
@@ -127,8 +132,13 @@
       els.btnBack.addEventListener('click', () => this.back());
       els.btnFwd.addEventListener('click', () => (this.finished ? this.jumpTo(0) : this.next()));
       els.btnRestart.addEventListener('click', () => this.jumpTo(0));
+      els.btnBack.innerHTML = `${CHEVRON.left}<span>Back</span>`;
+      // The Before / After switch is redrawn after the fade, so keep focus on the pressed side.
       els.stepBody.addEventListener('click', (e) => {
-        if (e.target.closest('[data-toggle-result]')) this.toggleResult();
+        const btn = e.target.closest('[data-result]');
+        if (!btn) return;
+        const on = btn.dataset.result === '1';
+        this.showResult(on).then(() => els.stepBody.querySelector(`[data-result="${on ? 1 : 0}"]`)?.focus({ preventScroll: true }));
       });
       const stageJump = (e) => {
         const btn = e.target.closest('[data-stage]');
@@ -165,7 +175,8 @@
       els.counterMoves.textContent = n ? `${n} steps · ${this.totalMoves} moves` : '';
       els.btnBack.disabled = s === 0;
       els.btnFwd.disabled = n === 0;
-      els.btnFwd.textContent = this.finished ? 'Start over ↺' : s === n - 1 ? 'Finish ›' : 'Next step ›';
+      els.btnFwd.innerHTML = this.finished ? '<span>Start over</span>'
+        : `<span>${s === n - 1 ? 'Finish' : 'Next step'}</span>${CHEVRON.right}`;
       els.viewNote.textContent = this.finished ? 'Solved' : this.result ? 'After this step' : 'Before this step';
       els.viewNote.classList.toggle('is-result', this.result || this.finished);
       this.renderBody(s);
@@ -224,7 +235,9 @@
         + `<span>Step ${s + 1} of ${this.steps.length} · ${esc(step.phase)}</span></div>`
         + `<ul class="routes ${done ? 'is-done' : ''}">${routes}</ul>`
         + `<div class="moves ${done ? 'is-done' : ''}" aria-label="Moves for this step">${groups}`
-        + `<button type="button" class="result-toggle" data-toggle-result aria-pressed="${done}">${done ? 'Hide result' : 'Show result'}</button></div>${hint}`;
+        + '<span class="view-switch" role="group" aria-label="Cube view">'
+        + `<button type="button" data-result="0" aria-pressed="${!done}">Before</button>`
+        + `<button type="button" data-result="1" aria-pressed="${done}">After</button></span></div>${hint}`;
     }
 
     // Detail on demand: what the step is for, what each part does, and how it works.
