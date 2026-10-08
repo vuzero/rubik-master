@@ -40,14 +40,17 @@ A 2×2 is the eight corners of a 4×4. It has no centers, so the solver picks on
 
 The solve uses the corner steps of the layer-by-layer stage: white corners with `R U R' U'`, the yellow face with Sunes, then the last corners with A-perms. A 2×2 can have two swapped corners (there are no edges to balance them), and the A-perm step handles that. The check needs 4 stickers of each color, three different colors on every corner, and no twisted corner.
 
-## Plan, then result
+## Solving, step by step
 
-Each step has two views:
+The solve screen shows the cube large in the middle, a stage checklist on the right and a dock along the bottom:
 
-- **Plan:** the cube as the step starts. The piece to move has a violet **From** label and its destination a cyan **To** label, joined by an arrow. The card beside the cube shows one line per piece (for example "White–Green edge: top-back edge → bottom-front edge") and the step's moves in large type, to do on your own cube.
-- **Done:** press **See result** and the cube fades to its state after the step; the destination is marked **Done ✓**. Press **Next step** for the next plan.
+- **Before:** the cube as the step starts. The piece to move has a violet **From** label and its destination a cyan **To** label, joined by an arrow. The dock shows one line per piece (for example "White–Green edge: top-back edge → bottom-front edge") and the step's moves, to do on your own cube.
+- **Show result** fades the cube to its state after the step; the destination is marked **Done ✓**. Press it again (**Hide result**) to go back.
+- **‹ Back** and **Next step ›** move one whole step. After the last step the cube is solved and Next becomes **Start over**.
 
-Intermediate positions are not animated: you see where each piece starts and where it must end up. **Why these moves** opens the explanation, **All steps** jumps anywhere, and Play walks through plan → result → next plan on its own.
+Keys: <kbd>→</kbd> next step, <kbd>←</kbd> back, <kbd>Space</kbd> show or hide the result. Intermediate positions are not animated: you see where each piece starts and where it must end up. **Why these moves?** opens the explanation, the stage checklist and **All steps** jump anywhere.
+
+The look is a notebook page (paper with a dot grid, moss-green accent, with a dark version) set in Fredoka for headings, buttons and moves and Figtree for text.
 
 ## Deploy to Cloudflare Pages
 

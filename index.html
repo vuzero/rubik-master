@@ -6,7 +6,7 @@
   <title>Rubik Solve Coach</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Figtree:wght@400;500;600;700;800&display=swap">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -74,32 +74,19 @@
     <section id="solve-view" aria-label="Solution" hidden>
       <div class="journey">
         <ol class="phase-bar" id="phase-bar" aria-label="Solve progress by stage"></ol>
-        <div class="counter"><span id="counter-steps" aria-live="polite"></span><span id="counter-moves"></span></div>
+        <span class="counter" id="counter-moves"></span>
       </div>
 
       <div class="solve-grid">
-        <div class="stage">
-          <div class="cube-card"><div class="viewport" id="solve3d"></div></div>
-          <div class="options">
-            <label for="speed">Speed <input type="range" id="speed" min="1" max="5" step="1" value="3"></label>
-            <label class="toggle" for="pause-at-step"><input type="checkbox" id="pause-at-step" checked> Pause after each step</label>
-            <button type="button" class="btn" id="btn-restart">Restart</button>
-            <button type="button" class="btn" id="btn-edit">Edit colors</button>
-          </div>
+        <div class="cube-stage">
+          <span class="view-note" id="view-note" aria-live="polite"></span>
+          <div class="viewport" id="solve3d"></div>
         </div>
 
-        <aside class="guide">
-          <div class="card step-card">
-            <div id="step-body"></div>
-            <details class="why" id="why">
-              <summary>Why these moves</summary>
-              <div id="why-body"></div>
-            </details>
-            <div class="card-actions">
-              <button type="button" class="btn" id="btn-back" title="Back (←)">‹ Back</button>
-              <button type="button" class="btn play-btn" id="btn-play" title="Play / pause (Space)">Play</button>
-              <button type="button" class="btn primary" id="btn-fwd" title="Next (→)">See result ›</button>
-            </div>
+        <aside class="side" aria-label="Stages and help">
+          <div class="card stages-card">
+            <h3>Stages</h3>
+            <ol class="stage-list" id="stage-list"></ol>
           </div>
           <details class="drawer steps-drawer">
             <summary>All steps</summary>
@@ -109,7 +96,23 @@
             <summary>How to read the moves</summary>
             <dl id="legend"></dl>
           </details>
+          <div class="side-tools">
+            <button type="button" class="btn" id="btn-restart">Start over</button>
+            <button type="button" class="btn" id="btn-edit">Edit colors</button>
+          </div>
         </aside>
+
+        <div class="dock">
+          <button type="button" class="dock-btn" id="btn-back" title="Back (←)">‹ Back</button>
+          <div class="dock-mid">
+            <div id="step-body"></div>
+            <details class="why" id="why">
+              <summary>Why these moves?</summary>
+              <div id="why-body"></div>
+            </details>
+          </div>
+          <button type="button" class="dock-btn primary" id="btn-fwd" title="Next step (→)">Next step ›</button>
+        </div>
       </div>
     </section>
   </main>

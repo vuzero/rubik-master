@@ -154,11 +154,10 @@
     $('tab-solve').classList.toggle('is-active', solving);
     $('tab-input').toggleAttribute('aria-current', !solving);
     $('tab-solve').toggleAttribute('aria-current', solving);
-    if (!solving && player) player.pause();
     window.scrollTo({ top: 0 });
     // The button that was clicked may now be hidden; keep keyboard focus somewhere sensible.
     if (document.activeElement && document.activeElement.closest('[hidden]')) {
-      (solving ? $('btn-play') : $('tab-input')).focus({ preventScroll: true });
+      (solving ? $('btn-fwd') : $('tab-input')).focus({ preventScroll: true });
     }
   }
 
@@ -170,15 +169,14 @@
       els: {
         root: $('solve-view'),
         counterMoves: $('counter-moves'),
-        counterSteps: $('counter-steps'),
+        viewNote: $('view-note'),
         btnBack: $('btn-back'),
         btnFwd: $('btn-fwd'),
-        btnPlay: $('btn-play'),
         btnRestart: $('btn-restart'),
-        speed: $('speed'),
-        pauseAtStep: $('pause-at-step'),
+        stageList: $('stage-list'),
         stepList: $('step-list'),
         stepBody: $('step-body'),
+        why: $('why'),
         whyBody: $('why-body'),
         phaseBar: $('phase-bar'),
       },

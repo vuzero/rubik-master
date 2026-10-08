@@ -1,24 +1,20 @@
 /*
- * Plan / result playback of a solution.
+ * Step-by-step playback of a solution.
  *
- * Each step has two views:
- *   plan — the cube as the step starts, with From → To labels and arrows showing
- *          which piece goes where; the step's moves are listed as text to follow;
- *   done — the cube after the step (reached with a smooth color fade, not by
- *          animating every move), the destination slots marked "Done".
- * Position p walks plan(0), done(0), plan(1), done(1), ... : step = floor(p / 2).
+ * The cube shows the current step as it starts: From → To labels and arrows
+ * mark which piece goes where, and the dock lists the moves to do. "Show
+ * result" fades the cube to its state after the step (destinations marked
+ * "Done"); pressing it again fades back. Next and Back move one whole step.
+ * Step n (one past the last step) is the solved cube.
  */
 (function (root) {
   'use strict';
   const C = root.Cube4;
   const N = root.Notation;
-  // Speed slider 1..5: how long the fade takes and how long play mode lingers on each view.
-  const FADE_MS = [900, 700, 520, 380, 240];
-  const PLAN_HOLD_MS = [4200, 3200, 2400, 1700, 1100];
-  const DONE_HOLD_MS = [2000, 1600, 1200, 900, 600];
+  const FADE_MS = 520;
   const STAGES = ['Centers', 'Edges', 'Layers 1–2', 'Yellow top', 'Last layer'];
   const STAGE_OF_PHASE = { Centers: 0, Edges: 1, 'Layer 1': 2, 'Layer 2': 2, 'Yellow top': 3, 'Last layer': 4 };
-  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const MAX_ROUTES = 2;
 
   const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 
@@ -29,9 +25,9 @@
       this.els = els;
       this.chain = Promise.resolve();
       this.gen = 0; // bumped by every jump; stale transitions check it and give up
-      this.runId = 0; // each play() run owns an id; pause() retires the current one
-      this.playing = false;
       this.busy = false;
+      this.step = 0;
+      this.result = false;
       this.bindControls();
     }
 
@@ -42,6 +38,8 @@
      */
     load(start, steps, size = 4) {
       if (this.view.size !== size) {
+        // Old labels point at stickers of the old size; drop them before the cube is rebuilt.
+        this.overlay?.clear();
         this.view.setSize(size);
         this.overlay?.attachFrames();
       }
@@ -61,18 +59,14 @@
       this.totalMoves = steps.reduce((n, s) => n + s.moves.length, 0);
       this.stageOfStep = this.assignStages(steps);
       this.focusedStep = -1;
-      this.pause();
       this.renderList();
       this.renderStages();
       this.jumpTo(0);
     }
 
     // ---- positions ------------------------------------------------------
-    get last() { return Math.max(0, this.steps.length * 2 - 1); }
-    stepOf(p) { return Math.floor(p / 2); }
-    isDone(p) { return this.steps.length === 0 || p % 2 === 1; }
-    cubeAt(p) { return this.states[this.steps.length ? this.stepOf(p) + (this.isDone(p) ? 1 : 0) : 0]; }
-    speedIndex() { return Math.min(4, Math.max(0, Number(this.els.speed.value) - 1)); }
+    get finished() { return this.step >= this.steps.length; }
+    cubeAt(step, result) { return this.states[Math.min(this.steps.length, step + (result ? 1 : 0))]; }
 
     // Parity fixes belong to the stage of the step that follows them.
     assignStages(steps) {
@@ -94,98 +88,68 @@
       return this.chain;
     }
 
-    async moveTo(next) {
-      if (next < 0 || next > this.last || next === this.pos) return false;
+    // Fade the cube to (step, result), then redraw the dock for it.
+    async go(stepWanted, resultWanted) {
+      const step = Math.max(0, Math.min(this.steps.length, stepWanted));
+      const result = resultWanted && step < this.steps.length;
+      if (step === this.step && result === this.result) return;
       const gen = this.gen;
-      const from = this.cubeAt(this.pos);
-      const to = this.cubeAt(next);
+      const from = this.cubeAt(this.step, this.result);
+      const to = this.cubeAt(step, result);
       if (from !== to) {
         this.busy = true;
         this.overlay?.clear();
-        await this.view.tweenColors(this.project(from), this.project(to), FADE_MS[this.speedIndex()]);
+        await this.view.tweenColors(this.project(from), this.project(to), FADE_MS);
         this.busy = false;
-        if (gen !== this.gen) return false;
+        if (gen !== this.gen) return;
       }
-      this.pos = next;
+      this.step = step;
+      this.result = result;
       this.render();
-      return true;
     }
 
-    forward() { return this.enqueue(() => this.moveTo(this.pos + 1)); }
-    back() { return this.enqueue(() => this.moveTo(this.pos - 1)); }
+    next() { return this.enqueue(() => this.go(this.step + 1, false)); }
+    back() { return this.enqueue(() => this.go(this.step - 1, false)); }
+    toggleResult() { return this.enqueue(() => this.go(this.step, !this.result)); }
 
-    jumpTo(p) {
+    jumpTo(step) {
       this.gen++;
       this.view.finishNow();
       this.busy = false;
       this.chain = Promise.resolve();
-      this.pos = Math.max(0, Math.min(this.last, p));
+      this.step = Math.max(0, Math.min(this.steps.length, step));
+      this.result = false;
       this.render();
     }
 
-    nextStep() {
-      this.pause();
-      const s = this.stepOf(this.pos);
-      this.jumpTo(s + 1 < this.steps.length ? (s + 1) * 2 : this.last);
-    }
-
-    prevStep() {
-      this.pause();
-      const s = this.stepOf(this.pos);
-      this.jumpTo(this.isDone(this.pos) ? s * 2 : Math.max(0, s - 1) * 2);
-    }
-
-    async play() {
-      if (this.playing || !this.steps.length) return;
-      if (this.pos >= this.last) this.jumpTo(0);
-      const run = ++this.runId;
-      this.playing = true;
-      this.renderPlayButton();
-      const live = () => run === this.runId;
-      while (live() && this.pos < this.last) {
-        const holds = this.isDone(this.pos) ? DONE_HOLD_MS : PLAN_HOLD_MS;
-        await wait(holds[this.speedIndex()]);
-        if (!live()) return;
-        await this.forward();
-        if (!live()) return;
-        if (this.els.pauseAtStep.checked && !this.isDone(this.pos)) break;
-      }
-      if (live()) this.pause();
-    }
-
-    pause() {
-      this.runId++;
-      this.playing = false;
-      this.renderPlayButton();
-    }
-
-    toggle() { return this.playing ? this.pause() : this.play(); }
-
     bindControls() {
       const { els } = this;
-      const stop = (fn) => () => { this.pause(); fn(); };
-      els.btnBack.addEventListener('click', stop(() => this.back()));
-      els.btnFwd.addEventListener('click', stop(() => this.forward()));
-      els.btnPlay.addEventListener('click', () => this.toggle());
-      els.btnRestart.addEventListener('click', () => { this.pause(); this.jumpTo(0); });
-      els.phaseBar.addEventListener('click', (e) => {
+      els.btnBack.addEventListener('click', () => this.back());
+      els.btnFwd.addEventListener('click', () => (this.finished ? this.jumpTo(0) : this.next()));
+      els.btnRestart.addEventListener('click', () => this.jumpTo(0));
+      els.stepBody.addEventListener('click', (e) => {
+        if (e.target.closest('[data-toggle-result]')) this.toggleResult();
+      });
+      const stageJump = (e) => {
         const btn = e.target.closest('[data-stage]');
         if (!btn) return;
         const first = this.stageOfStep.indexOf(Number(btn.dataset.stage));
-        if (first >= 0) { this.pause(); this.jumpTo(first * 2); }
-      });
+        if (first >= 0) this.jumpTo(first);
+      };
+      els.phaseBar.addEventListener('click', stageJump);
+      els.stageList.addEventListener('click', stageJump);
       els.stepList.addEventListener('click', (e) => {
         const row = e.target.closest('[data-step]');
-        if (row) { this.pause(); this.jumpTo(Number(row.dataset.step) * 2); }
+        if (row) this.jumpTo(Number(row.dataset.step));
       });
       window.addEventListener('keydown', (e) => {
         if (els.root.hidden || /input|textarea|select/i.test(e.target.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
-        // Space on a focused control should press that control, not toggle playback.
+        // Space on a focused control should press that control.
         if (e.key === ' ' && /button|summary|a/i.test(e.target.tagName)) return;
         const keys = {
-          ArrowRight: () => (e.shiftKey ? this.nextStep() : stop(() => this.forward())()),
-          ArrowLeft: () => (e.shiftKey ? this.prevStep() : stop(() => this.back())()),
-          ' ': () => this.toggle(),
+          ArrowRight: () => (this.finished ? null : this.next()),
+          ArrowLeft: () => this.back(),
+          ' ': () => (this.finished ? null : this.toggleResult()),
         };
         if (keys[e.key]) { e.preventDefault(); keys[e.key](); }
       });
@@ -193,22 +157,22 @@
 
     // ---- rendering ------------------------------------------------------
     render() {
-      const { els, pos } = this;
-      const s = this.stepOf(pos);
-      const done = this.isDone(pos);
+      const { els } = this;
+      const s = this.step;
       const n = this.steps.length;
-      this.view.setState(this.project(this.cubeAt(pos)));
+      this.view.setState(this.project(this.cubeAt(s, this.result)));
 
-      els.counterSteps.textContent = n ? `Step ${s + 1} of ${n}` : 'Already solved';
-      els.counterMoves.textContent = `${this.totalMoves} moves in total`;
-      els.btnBack.disabled = pos === 0;
-      els.btnFwd.disabled = pos >= this.last;
-      els.btnFwd.textContent = !n || pos >= this.last ? 'Solved ✓' : done ? 'Next step ›' : 'See result ›';
-      this.renderBody(s, done);
+      els.counterMoves.textContent = n ? `${n} steps · ${this.totalMoves} moves` : '';
+      els.btnBack.disabled = s === 0;
+      els.btnFwd.disabled = n === 0;
+      els.btnFwd.textContent = this.finished ? 'Start over ↺' : s === n - 1 ? 'Finish ›' : 'Next step ›';
+      els.viewNote.textContent = this.finished ? 'Solved' : this.result ? 'After this step' : 'Before this step';
+      els.viewNote.classList.toggle('is-result', this.result || this.finished);
+      this.renderBody(s);
       this.renderWhy(s);
-      this.renderListState(s, done);
-      this.renderStageState(s, done);
-      this.renderGoal(s, done);
+      this.renderListState(s);
+      this.renderStageState(s);
+      this.renderGoal(s);
       if (s !== this.focusedStep) {
         this.focusedStep = s;
         const groups = this.steps[s]?.goal.items.flatMap((it) => it.groups) || [];
@@ -220,46 +184,47 @@
       }
     }
 
-    renderPlayButton() {
-      this.els.btnPlay.textContent = this.playing ? 'Pause' : 'Play';
-    }
-
-    // Plan: From → To on the starting cube. Done: the destination slots, now filled.
-    renderGoal(s, done) {
+    // Before: From → To on the starting cube. After: the destination slots, now filled.
+    renderGoal(s) {
       if (!this.overlay) return;
       const step = this.steps[s];
       if (!step) { this.overlay.clear(); return; }
       const groups = step.goal.items.flatMap((it) => it.groups)
         .map((g) => ({ from: this.mapGroup(g.from), to: this.mapGroup(g.to) }));
-      if (done) this.overlay.showResult(groups.map((g) => g.to));
+      if (this.result) this.overlay.showResult(groups.map((g) => g.to));
       else this.overlay.show(groups);
     }
 
-    // The card: status, one line per piece (where from, where to) and the moves to do.
-    renderBody(s, done) {
+    // The dock: title, where each piece goes, the moves and the result toggle.
+    renderBody(s) {
       const step = this.steps[s];
+      this.els.why.hidden = !step;
       if (!step) {
-        this.els.stepBody.innerHTML = '<div class="finished"><h2>Nothing to do</h2><p>The colors you entered are already a solved cube.</p></div>';
+        const n = this.steps.length;
+        this.els.stepBody.innerHTML = n
+          ? `<div class="dock-title"><h2>Solved ✓</h2><span>${n} steps · ${this.totalMoves} moves</span></div>`
+            + '<p class="dock-note">Every face is one color. Press Start over to walk through it again, or Edit colors for another cube.</p>'
+          : '<div class="dock-title"><h2>Nothing to do</h2></div><p class="dock-note">The colors you entered are already a solved cube.</p>';
         return;
       }
-      const finished = done && s === this.steps.length - 1;
-      const badge = `<span class="state-badge ${done ? 'is-done' : 'is-plan'}">${finished ? 'Solved ✓' : done ? 'Done ✓' : 'Plan'}</span>`;
+      const done = this.result;
       const swatches = (cols) => `<span class="swatches">${cols.map((c) => `<i class="sw sw-${c}"></i>`).join('')}</span>`;
       const items = step.goal.items;
-      const shown = items.slice(0, 3);
+      const shown = items.slice(0, MAX_ROUTES);
       const routes = shown.map((it) => `<li>${swatches(it.colors)}<b>${esc(it.name)}</b> <span class="route">${done
         ? `now in the ${esc(it.toName)}`
         : it.inPlace ? 'turns in place' : `${esc(it.fromName)} <span aria-hidden="true">→</span> ${esc(it.toName)}`}</span></li>`).join('')
         + (items.length > shown.length ? `<li class="more">+${items.length - shown.length} more pieces</li>` : '');
-      const groups = step.parts.map((part) => `<div class="move-group" title="${esc(part.label)}">${part.moves
-        .map((m) => `<span class="token" title="${esc(N.explain(m).title)}">${esc(m)}</span>`).join('')}</div>`).join('');
+      const groups = step.parts.map((part) => `<span class="move-group" title="${esc(part.label)}">${part.moves
+        .map((m) => `<span class="token" title="${esc(N.explain(m).title)}">${esc(m)}</span>`).join('')}</span>`).join('');
       const hint = s === 0 && !done
-        ? '<p class="hint">Find the piece marked <b class="from-word">From</b> on your cube, do these moves, and it lands on <b class="to-word">To</b>.</p>'
+        ? '<p class="dock-note">Find the piece marked <b class="from-word">From</b> on your cube, do these moves, and it lands on <b class="to-word">To</b>.</p>'
         : '';
-      this.els.stepBody.innerHTML = `<div class="step-head">${badge}<div class="step-title"><span class="eyebrow">${esc(step.phase)}</span>`
-        + `<h2>${esc(step.title)}</h2></div></div>`
+      this.els.stepBody.innerHTML = `<div class="dock-title"><h2>${esc(step.title)}</h2>`
+        + `<span>Step ${s + 1} of ${this.steps.length} · ${esc(step.phase)}</span></div>`
         + `<ul class="routes ${done ? 'is-done' : ''}">${routes}</ul>`
-        + `<div class="moves ${done ? 'is-done' : ''}" aria-label="Moves for this step">${groups}</div>${hint}`;
+        + `<div class="moves ${done ? 'is-done' : ''}" aria-label="Moves for this step">${groups}`
+        + `<button type="button" class="result-toggle" data-toggle-result aria-pressed="${done}">${done ? 'Hide result' : 'Show result'}</button></div>${hint}`;
     }
 
     // Detail on demand: what the step is for, what each part does, and how it works.
@@ -271,27 +236,36 @@
         : '';
     }
 
+    // Only stages this solution goes through (a 3x3 has no centers or edge pairing,
+    // a 2x2 has no middle layer either). Shown twice: a thin bar on top and a checklist.
     renderStages() {
-      // Only stages this solution goes through (a 3x3 has no centers or edge pairing,
-      // a 2x2 has no middle layer either).
       const middle = this.steps.some((st) => st.phase === 'Layer 2');
-      this.els.phaseBar.innerHTML = STAGES.map((stage, i) => {
-        if (!this.stageOfStep.includes(i)) return '';
-        const name = i === STAGE_OF_PHASE['Layer 1'] && !middle ? 'Layer 1' : stage;
-        return `<li><button type="button" class="phase" data-stage="${i}">`
-          + '<span class="phase-track"><span class="phase-fill"></span></span>'
-          + `<span class="phase-name">${esc(name)}</span></button></li>`;
-      }).join('');
+      const used = STAGES.map((stage, i) => ({ i, name: i === STAGE_OF_PHASE['Layer 1'] && !middle ? 'Layer 1' : stage }))
+        .filter(({ i }) => this.stageOfStep.includes(i));
+      this.els.phaseBar.innerHTML = used.map(({ i, name }) => `<li><button type="button" class="phase" data-stage="${i}">`
+        + '<span class="phase-track"><span class="phase-fill"></span></span>'
+        + `<span class="phase-name">${esc(name)}</span></button></li>`).join('');
+      this.els.stageList.innerHTML = used.map(({ i, name }) => `<li><button type="button" class="stage-row" data-stage="${i}">`
+        + `<i aria-hidden="true"></i><span>${esc(name)}</span><em></em></button></li>`).join('');
     }
 
-    renderStageState(s, done) {
-      const finishedSteps = s + (done ? 1 : 0);
-      this.els.phaseBar.querySelectorAll('.phase').forEach((btn) => {
-        const stage = Number(btn.dataset.stage);
+    renderStageState(s) {
+      const finishedSteps = s + (this.result ? 1 : 0);
+      const stats = (stage) => {
         const mine = this.stageOfStep.map((g, i) => (g === stage ? i : -1)).filter((i) => i >= 0);
         const finished = mine.filter((i) => i < finishedSteps).length;
-        const complete = !mine.length || finished === mine.length;
-        btn.querySelector('.phase-fill').style.width = `${complete ? 100 : (finished / mine.length) * 100}%`;
+        return { mine, finished, complete: finished === mine.length };
+      };
+      this.els.phaseBar.querySelectorAll('.phase').forEach((btn) => {
+        const { mine, finished, complete } = stats(Number(btn.dataset.stage));
+        btn.querySelector('.phase-fill').style.width = `${(finished / mine.length) * 100}%`;
+        btn.classList.toggle('is-done', complete);
+        btn.classList.toggle('is-current', !complete && mine.includes(s));
+      });
+      this.els.stageList.querySelectorAll('.stage-row').forEach((btn) => {
+        const { mine, finished, complete } = stats(Number(btn.dataset.stage));
+        btn.querySelector('em').textContent = `${finished}/${mine.length}`;
+        btn.querySelector('i').textContent = complete ? '✓' : '';
         btn.classList.toggle('is-done', complete);
         btn.classList.toggle('is-current', !complete && mine.includes(s));
       });
@@ -311,11 +285,11 @@
       this.els.stepList.innerHTML = html;
     }
 
-    renderListState(s, done) {
+    renderListState(s) {
       const rows = this.els.stepList.querySelectorAll('.step-row');
       rows.forEach((row) => {
         const i = Number(row.dataset.step);
-        row.classList.toggle('done', i < s || (i === s && done));
+        row.classList.toggle('done', i < s || (i === s && this.result));
         row.classList.toggle('current', i === s);
       });
       const current = rows[s];
