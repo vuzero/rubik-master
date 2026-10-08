@@ -1,21 +1,19 @@
 /*
- * Step-by-step playback of a solution.
+ * Step-by-step playback of a solution, one move at a time.
  *
- * The cube shows the current step as it starts: From → To labels and arrows
- * mark which piece goes where, and the dock lists the moves to do. The
- * Before / After switch turns the cube through the step's moves (destinations
- * then marked "Done") and back; Next and Back do the same a whole step at a
- * time. The move being turned is highlighted in the dock. Pressing again while
- * the cube turns skips to the end. Step n (one past the last) is the solved cube.
+ * The position is (step, move): how many of the current step's moves are done.
+ * With none done the cube shows the step as it starts: From → To labels and
+ * arrows mark which piece goes where, and the dock lists the moves. Next turns
+ * the next move (and the arrow follows the piece); once the step is done, Next
+ * goes on to the next step. Back turns the last move back. The Before / After
+ * switch jumps straight to the start or the end of the step. Step n (one past
+ * the last) is the solved cube.
  */
 (function (root) {
   'use strict';
   const C = root.Cube4;
   const N = root.Notation;
-  // One quarter turn takes MOVE_MS; long sequences speed up so none lasts much over MAX_SEQUENCE_MS.
-  const MOVE_MS = 340;
-  const MIN_MOVE_MS = 120;
-  const MAX_SEQUENCE_MS = 6500;
+  const MOVE_MS = 600; // one quarter turn; half turns and cube rotations take a little longer
   const STAGES = ['Centers', 'Edges', 'Layers 1–2', 'Yellow top', 'Last layer'];
   const STAGE_OF_PHASE = { Centers: 0, Edges: 1, 'Layer 1': 2, 'Layer 2': 2, 'Yellow top': 3, 'Last layer': 4 };
   const MAX_ROUTES = 2;
@@ -32,11 +30,10 @@
       this.overlay = root.GoalOverlay ? new root.GoalOverlay(view) : null;
       this.els = els;
       this.chain = Promise.resolve();
-      this.gen = 0; // bumped by every jump; stale transitions check it and give up
+      this.gen = 0; // bumped by every jump; stale turns check it and give up
       this.busy = false;
-      this.rush = false; // set when the viewer presses again mid-sequence: finish without animating
       this.step = 0;
-      this.result = false;
+      this.move = 0;
       this.bindControls();
     }
 
@@ -75,13 +72,11 @@
 
     // ---- positions ------------------------------------------------------
     get finished() { return this.step >= this.steps.length; }
-    stateIndex(step, result) { return Math.min(this.steps.length, step + (result ? 1 : 0)); }
-    cubeAt(step, result) { return this.states[this.stateIndex(step, result)]; }
-
-    // The moves that take state i to state j (backwards: the inverse moves).
-    movesBetween(i, j) {
-      if (j >= i) return this.steps.slice(i, j).flatMap((s) => s.moves);
-      return C.invertAlg(this.steps.slice(j, i).flatMap((s) => s.moves));
+    movesOf(step) { return this.steps[step]?.moves || []; }
+    get atEnd() { return !this.finished && this.move === this.movesOf(this.step).length; }
+    cubeNow() {
+      if (this.finished) return this.states[this.steps.length];
+      return C.applyAlg(this.states[this.step], this.movesOf(this.step).slice(0, this.move));
     }
 
     // Parity fixes belong to the stage of the step that follows them.
@@ -97,76 +92,63 @@
     }
 
     // ---- actions --------------------------------------------------------
+    // Presses queue up; a press during a turn finishes that turn at once.
     enqueue(action) {
       const gen = this.gen;
-      if (this.busy) {
-        this.rush = true;
-        this.view.finishNow();
-      }
+      if (this.busy) this.view.finishNow();
       this.chain = this.chain.then(() => (gen === this.gen ? action() : null)).catch(() => {});
       return this.chain;
     }
 
-    // Turn the cube to (step, result) move by move, then redraw the dock for it.
-    async go(stepWanted, resultWanted) {
-      const step = Math.max(0, Math.min(this.steps.length, stepWanted));
-      const result = resultWanted && step < this.steps.length;
-      if (step === this.step && result === this.result) return;
-      const gen = this.gen;
-      const from = this.stateIndex(this.step, this.result);
-      const to = this.stateIndex(step, result);
-      if (from !== to) {
-        this.busy = true;
-        this.rush = false;
-        this.overlay?.clear();
-        // Only the step shown in the dock gets its tokens lit up as they turn.
-        const shown = this.step;
-        const forward = from === shown && to === shown + 1;
-        const backward = from === shown + 1 && to === shown;
-        const moves = this.movesBetween(from, to);
-        await this.playMoves(this.states[from], moves, (k) => {
-          this.markToken(k < 0 ? -1 : forward ? k : backward ? moves.length - 1 - k : -1);
-          this.els.viewNote.textContent = k < 0 ? '' : `Turning ${moves[k]}`;
-        });
-        this.busy = false;
-        if (gen !== this.gen) return;
-      }
-      this.step = step;
-      this.result = result;
+    setPos(step, move) {
+      this.step = Math.max(0, Math.min(this.steps.length, step));
+      this.move = Math.max(0, Math.min(this.movesOf(this.step).length, move));
       this.render();
     }
 
-    async playMoves(start, moves, onMove) {
+    // Animate one move forward (dir 1) or undo the last one (dir -1).
+    async turn(dir) {
       const gen = this.gen;
-      const perMove = Math.max(MIN_MOVE_MS, Math.min(MOVE_MS, MAX_SEQUENCE_MS / moves.length));
-      let cur = start;
-      for (let k = 0; k < moves.length; k++) {
-        onMove(k);
-        if (!this.rush) await this.view.animateMove(moves[k], perMove);
-        if (gen !== this.gen) return;
-        cur = C.applyMove(cur, moves[k]);
-        this.view.setState(this.project(cur));
-      }
-      onMove(-1);
+      const moves = this.movesOf(this.step);
+      const index = dir > 0 ? this.move : this.move - 1;
+      const token = dir > 0 ? moves[index] : C.invertToken(moves[index]);
+      this.busy = true;
+      this.overlay?.clear();
+      this.markToken(index);
+      this.els.viewNote.textContent = `Turning ${token}`;
+      await this.view.animateMove(token, MOVE_MS);
+      this.busy = false;
+      if (gen !== this.gen) return;
+      this.setPos(this.step, this.move + dir);
     }
+
+    next() {
+      return this.enqueue(async () => {
+        if (this.finished) return;
+        if (this.atEnd) this.setPos(this.step + 1, 0);
+        else await this.turn(1);
+      });
+    }
+
+    back() {
+      return this.enqueue(async () => {
+        if (this.move > 0) await this.turn(-1);
+        else if (this.step > 0) this.setPos(this.step - 1, this.movesOf(this.step - 1).length);
+      });
+    }
+
+    showEnd(on) { return this.enqueue(() => this.setPos(this.step, on ? this.movesOf(this.step).length : 0)); }
 
     markToken(index) {
       this.els.stepBody.querySelectorAll('.token').forEach((t, i) => t.classList.toggle('is-now', i === index));
     }
-
-    next() { return this.enqueue(() => this.go(this.step + 1, false)); }
-    back() { return this.enqueue(() => this.go(this.step - 1, false)); }
-    toggleResult() { return this.enqueue(() => this.go(this.step, !this.result)); }
-    showResult(on) { return this.enqueue(() => this.go(this.step, on)); }
 
     jumpTo(step) {
       this.gen++;
       this.view.finishNow();
       this.busy = false;
       this.chain = Promise.resolve();
-      this.step = Math.max(0, Math.min(this.steps.length, step));
-      this.result = false;
-      this.render();
+      this.setPos(step, 0);
     }
 
     bindControls() {
@@ -175,12 +157,12 @@
       els.btnFwd.addEventListener('click', () => (this.finished ? this.jumpTo(0) : this.next()));
       els.btnRestart.addEventListener('click', () => this.jumpTo(0));
       els.btnBack.innerHTML = `${CHEVRON.left}<span>Back</span>`;
-      // The Before / After switch is redrawn after the fade, so keep focus on the pressed side.
+      // The Before / After switch is redrawn, so keep focus on the pressed side.
       els.stepBody.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-result]');
         if (!btn) return;
         const on = btn.dataset.result === '1';
-        this.showResult(on).then(() => els.stepBody.querySelector(`[data-result="${on ? 1 : 0}"]`)?.focus({ preventScroll: true }));
+        this.showEnd(on).then(() => els.stepBody.querySelector(`[data-result="${on ? 1 : 0}"]`)?.focus({ preventScroll: true }));
       });
       const stageJump = (e) => {
         const btn = e.target.closest('[data-stage]');
@@ -201,7 +183,7 @@
         const keys = {
           ArrowRight: () => (this.finished ? null : this.next()),
           ArrowLeft: () => this.back(),
-          ' ': () => (this.finished ? null : this.toggleResult()),
+          ' ': () => (this.finished ? null : this.showEnd(!this.atEnd)),
         };
         if (keys[e.key]) { e.preventDefault(); keys[e.key](); }
       });
@@ -212,15 +194,18 @@
       const { els } = this;
       const s = this.step;
       const n = this.steps.length;
-      this.view.setState(this.project(this.cubeAt(s, this.result)));
+      const total = this.movesOf(s).length;
+      this.view.setState(this.project(this.cubeNow()));
 
       els.counterMoves.textContent = n ? `${n} steps · ${this.totalMoves} moves` : '';
-      els.btnBack.disabled = s === 0;
+      els.btnBack.disabled = s === 0 && this.move === 0;
       els.btnFwd.disabled = n === 0;
-      els.btnFwd.innerHTML = this.finished ? '<span>Start over</span>'
-        : `<span>${s === n - 1 ? 'Finish' : 'Next step'}</span>${CHEVRON.right}`;
-      els.viewNote.textContent = this.finished ? 'Solved' : this.result ? 'After this step' : 'Before this step';
-      els.viewNote.classList.toggle('is-result', this.result || this.finished);
+      const label = this.finished ? 'Start over' : !this.atEnd ? 'Next move' : s === n - 1 ? 'Finish' : 'Next step';
+      els.btnFwd.innerHTML = this.finished ? `<span>${label}</span>` : `<span>${label}</span>${CHEVRON.right}`;
+      els.viewNote.textContent = this.finished ? 'Solved'
+        : this.move === 0 ? 'Before this step'
+          : this.atEnd ? 'After this step' : `${this.move} of ${total} moves done`;
+      els.viewNote.classList.toggle('is-result', this.atEnd || this.finished);
       this.renderBody(s);
       this.renderWhy(s);
       this.renderListState(s);
@@ -237,18 +222,19 @@
       }
     }
 
-    // Before: From → To on the starting cube. After: the destination slots, now filled.
+    // From → To while the step is under way (From follows the piece); at the end, the filled slots.
     renderGoal(s) {
       if (!this.overlay) return;
       const step = this.steps[s];
       if (!step) { this.overlay.clear(); return; }
+      const done = step.moves.slice(0, this.move);
       const groups = step.goal.items.flatMap((it) => it.groups)
-        .map((g) => ({ from: this.mapGroup(g.from), to: this.mapGroup(g.to) }));
-      if (this.result) this.overlay.showResult(groups.map((g) => g.to));
+        .map((g) => ({ from: this.mapGroup(root.Goals.track(g.from, done)), to: this.mapGroup(g.to) }));
+      if (this.atEnd) this.overlay.showResult(groups.map((g) => g.to));
       else this.overlay.show(groups);
     }
 
-    // The dock: title, where each piece goes, the moves and the result toggle.
+    // The dock: title, where each piece goes, the moves (done / next / still to do) and Before / After.
     renderBody(s) {
       const step = this.steps[s];
       this.els.why.hidden = !step;
@@ -260,7 +246,7 @@
           : '<div class="dock-title"><h2>Nothing to do</h2></div><p class="dock-note">The colors you entered are already a solved cube.</p>';
         return;
       }
-      const done = this.result;
+      const done = this.atEnd;
       const swatches = (cols) => `<span class="swatches">${cols.map((c) => `<i class="sw sw-${c}"></i>`).join('')}</span>`;
       const items = step.goal.items;
       const shown = items.slice(0, MAX_ROUTES);
@@ -268,17 +254,19 @@
         ? `now in the ${esc(it.toName)}`
         : it.inPlace ? 'turns in place' : `${esc(it.fromName)} <span aria-hidden="true">→</span> ${esc(it.toName)}`}</span></li>`).join('')
         + (items.length > shown.length ? `<li class="more">+${items.length - shown.length} more pieces</li>` : '');
+      let k = 0;
+      const tokenClass = (i) => (i < this.move ? 'is-done' : i === this.move ? 'is-next' : '');
       const groups = step.parts.map((part) => `<span class="move-group" title="${esc(part.label)}">${part.moves
-        .map((m) => `<span class="token" title="${esc(N.explain(m).title)}">${esc(m)}</span>`).join('')}</span>`).join('');
-      const hint = s === 0 && !done
-        ? '<p class="dock-note">Find the piece marked <b class="from-word">From</b> on your cube, do these moves, and it lands on <b class="to-word">To</b>.</p>'
+        .map((m) => { const i = k++; return `<span class="token ${tokenClass(i)}" title="${esc(N.explain(m).title)}">${esc(m)}</span>`; }).join('')}</span>`).join('');
+      const hint = s === 0 && this.move === 0
+        ? '<p class="dock-note">Find the piece marked <b class="from-word">From</b> on your cube, then press Next move for each turn until it lands on <b class="to-word">To</b>.</p>'
         : '';
       this.els.stepBody.innerHTML = `<div class="dock-title"><h2>${esc(step.title)}</h2>`
         + `<span>Step ${s + 1} of ${this.steps.length} · ${esc(step.phase)}</span></div>`
         + `<ul class="routes ${done ? 'is-done' : ''}">${routes}</ul>`
-        + `<div class="moves ${done ? 'is-done' : ''}" aria-label="Moves for this step">${groups}`
-        + '<span class="view-switch" role="group" aria-label="Cube view">'
-        + `<button type="button" data-result="0" aria-pressed="${!done}">Before</button>`
+        + `<div class="moves" aria-label="Moves for this step: ${this.move} of ${step.moves.length} done">${groups}`
+        + '<span class="view-switch" role="group" aria-label="Jump to the start or end of this step">'
+        + `<button type="button" data-result="0" aria-pressed="${this.move === 0}">Before</button>`
         + `<button type="button" data-result="1" aria-pressed="${done}">After</button></span></div>${hint}`;
     }
 
@@ -305,7 +293,7 @@
     }
 
     renderStageState(s) {
-      const finishedSteps = s + (this.result ? 1 : 0);
+      const finishedSteps = s + (this.atEnd ? 1 : 0);
       const stats = (stage) => {
         const mine = this.stageOfStep.map((g, i) => (g === stage ? i : -1)).filter((i) => i >= 0);
         const finished = mine.filter((i) => i < finishedSteps).length;
@@ -344,7 +332,7 @@
       const rows = this.els.stepList.querySelectorAll('.step-row');
       rows.forEach((row) => {
         const i = Number(row.dataset.step);
-        row.classList.toggle('done', i < s || (i === s && this.result));
+        row.classList.toggle('done', i < s || (i === s && this.atEnd));
         row.classList.toggle('current', i === s);
       });
       const current = rows[s];

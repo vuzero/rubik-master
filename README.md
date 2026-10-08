@@ -45,10 +45,11 @@ The solve uses the corner steps of the layer-by-layer stage: white corners with 
 The solve screen shows the cube large in the middle, a stage checklist on the right and a dock along the bottom:
 
 - **Before:** the cube as the step starts. The piece to move has a violet **From** label and its destination a cyan **To** label, joined by an arrow. The dock shows one line per piece (for example "White–Green edge: top-back edge → bottom-front edge") and the step's moves, to do on your own cube.
-- The **Before / After** switch turns the cube through the step's moves, one turn at a time with the current move lit up in the dock, until the destination is marked **Done ✓**; switching back turns it in reverse.
-- **‹ Back** and **Next step ›** move one whole step, with the same turning animation. Pressing again while the cube turns skips to the end. After the last step the cube is solved and Next becomes **Start over**.
+- **Next move ›** turns the cube one move (about 0.6 s per quarter turn), with that move lit up in the dock; moves already done get a ✓ and the next one a ring. The From label and arrow follow the piece. When the step's moves are done the destination is marked **Done ✓** and the button becomes **Next step ›**.
+- **‹ Back** turns the last move back; at the start of a step it goes to the end of the previous one. Pressing either button while the cube turns finishes that turn at once.
+- The **Before / After** switch jumps straight to the start or the end of the step. After the last step the cube is solved and the button becomes **Start over**.
 
-Keys: <kbd>→</kbd> next step, <kbd>←</kbd> back, <kbd>Space</kbd> switch between Before and After. The From → To arrow runs along the outside of the cube: over the shared edge between two faces, or across the side facing you between opposite faces. **Why these moves?** opens the explanation, the stage checklist and **All steps** jump anywhere.
+Keys: <kbd>→</kbd> next move, <kbd>←</kbd> back one move, <kbd>Space</kbd> switch between Before and After. The From → To arrow runs along the outside of the cube: over the shared edge between two faces, or across the side facing you between opposite faces. **Why these moves?** opens the explanation, the stage checklist and **All steps** jump anywhere.
 
 The look is a notebook page (paper with a dot grid, moss-green accent, with a dark version) set in Fredoka for headings, buttons and moves and Figtree for text. Buttons are soft pills: secondary ones on a tinted ground, the main action solid green.
 
