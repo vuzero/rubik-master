@@ -51,17 +51,17 @@ Build the static package:
 node tools/build-cloudflare.mjs
 ```
 
-This creates `dist/` and `rubik-solver-cloudflare.zip`. `dist/` contains:
+This creates `dist/` and `rubik-master-cloudflare.zip`. `dist/` contains:
 
 - the site files, with `?v=<hash>` added to every CSS/JS link so new versions show up immediately;
 - `_headers`, which Cloudflare Pages applies automatically: a strict Content Security Policy (scripts only from the site itself), no framing, long-term caching for CSS/JS and `no-cache` for the page.
 
 Upload it either way:
 
-- **Dashboard:** Workers & Pages → Create → Pages → *Upload assets* → drag in `rubik-solver-cloudflare.zip` (or the `dist` folder) → Deploy.
-- **CLI:** `npx wrangler pages deploy dist --project-name=rubik-solver` (log in once with `npx wrangler login`).
-- **Workers (Git, auto-deploy on every push):** Workers & Pages → Create → Import a repository → `vuzero/rubik-solver`. Project name `rubik-master` (must match `name` in `wrangler.jsonc`), build command `node tools/build-cloudflare.mjs`, deploy command `npx wrangler deploy`.
-- **Pages (Git, auto-deploy on every push):** Workers & Pages → Create → Pages → *Connect to Git* → `vuzero/rubik-solver`. Build command `node tools/build-cloudflare.mjs`, build output directory `dist`. No install step or framework preset is needed.
+- **Dashboard:** Workers & Pages → Create → Pages → *Upload assets* → drag in `rubik-master-cloudflare.zip` (or the `dist` folder) → Deploy.
+- **CLI:** `npx wrangler pages deploy dist --project-name=rubik-master` (log in once with `npx wrangler login`).
+- **Workers (Git, auto-deploy on every push):** Workers & Pages → Create → Import a repository → `vuzero/rubik-master`. Project name `rubik-master` (must match `name` in `wrangler.jsonc`), build command `node tools/build-cloudflare.mjs`, deploy command `npx wrangler deploy`.
+- **Pages (Git, auto-deploy on every push):** Workers & Pages → Create → Pages → *Connect to Git* → `vuzero/rubik-master`. Build command `node tools/build-cloudflare.mjs`, build output directory `dist`. No install step or framework preset is needed.
 
 ## Files
 

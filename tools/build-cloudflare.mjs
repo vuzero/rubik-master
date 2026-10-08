@@ -1,6 +1,6 @@
 /*
  * Builds dist/ (a static site ready for Cloudflare Pages) and, for manual
- * uploads, rubik-solver-cloudflare.zip.
+ * uploads, rubik-master-cloudflare.zip.
  *
  *   node tools/build-cloudflare.mjs
  *
@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
-const zipPath = join(root, 'rubik-solver-cloudflare.zip');
+const zipPath = join(root, 'rubik-master-cloudflare.zip');
 
 const HEADERS = `/*
   X-Content-Type-Options: nosniff

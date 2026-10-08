@@ -1,6 +1,6 @@
 # Build output (recreate with: node tools/build-cloudflare.mjs)
 dist/
-rubik-solver-cloudflare.zip
+rubik-master-cloudflare.zip
 
 # Local editor / tooling
 .DS_Store
