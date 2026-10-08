@@ -3,7 +3,9 @@
  *   - a violet frame on the stickers of the piece being moved, a cyan frame
  *     around the slots it must reach (frames are children of the sticker
  *     meshes, so the violet one rides along while a layer turns);
- *   - a slim curved arrow from piece to destination (hidden during a turn);
+ *   - a slim curved arrow from piece to destination that runs along the
+ *     outside of the cube: over the shared edge between two faces, or across
+ *     the side facing the camera between opposite faces;
  *   - "From" / "To" labels pinned to the cube in screen space, with a leader
  *     line to the exact stickers. Labels are re-placed after every frame, so
  *     they follow the piece while it turns and the cube while it is dragged.
@@ -16,6 +18,7 @@
   const SRC_CSS = '#8b5cf6';
   const DST_CSS = '#19d3ff';
   const OUT = 0.12; // arrow ends float this far above the stickers
+  const LIFT = 0.42; // the arrow's path keeps at least this far outside the cube
   const LABEL_GAP_PX = 40; // minimum distance from sticker to label
   const CLEAR_PX = 16; // labels sit at least this far outside the cube's outline
   const LABEL_H = 26;
@@ -42,6 +45,20 @@
     rect(hole, inner, Math.max(0.01, radius - (outer - inner) / 2));
     shape.holes.push(hole);
     return new THREE.ShapeGeometry(shape);
+  }
+
+  // Face normals a piece touches: one for a center, two for an edge, three for a corner.
+  function faceNormals(v) {
+    return [0, 1, 2].filter((k) => Math.abs(v.getComponent(k)) > 0.3).map((k) => {
+      const out = new THREE.Vector3();
+      out.setComponent(k, Math.sign(v.getComponent(k)));
+      return out;
+    });
+  }
+
+  // Outward normal of a group of stickers (a corner or edge piece averages its faces).
+  function groupNormal(group, geom) {
+    return group.reduce((n, i) => n.add(new THREE.Vector3(...geom[i].n)), new THREE.Vector3()).normalize();
   }
 
   // Point just above a group of stickers, in the cube's own (home) frame.
@@ -148,17 +165,7 @@
       const dist = a.distanceTo(b);
       if (dist < 0.05) return;
 
-      // Bow the arrow outward so it arcs over the cube instead of cutting through it.
-      const mid = a.clone().add(b).multiplyScalar(0.5);
-      let out = mid.clone();
-      if (out.length() < 0.6) {
-        out = new THREE.Vector3().crossVectors(a, new THREE.Vector3(0, 1, 0));
-        if (out.length() < 0.1) out.crossVectors(a, new THREE.Vector3(1, 0, 0));
-      }
-      const radius = Math.max(a.length(), b.length());
-      const ctrl = out.normalize().multiplyScalar(radius + 0.3 + dist * 0.25);
-      const curve = new THREE.QuadraticBezierCurve3(a, ctrl, b);
-
+      const curve = this.arrowPath(a, groupNormal(fromGroup, this.view.geom), b, groupNormal(toGroup, this.view.geom));
       this.arrows.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 48, 0.026, 8, false), this.arrowMat));
       const headLen = 0.24;
       const headGeo = new THREE.ConeGeometry(0.085, headLen, 16);
@@ -167,6 +174,52 @@
       head.position.copy(b);
       head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), curve.getTangent(1).normalize());
       this.arrows.add(head);
+    }
+
+    /**
+     * A smooth path from a to b that never enters the cube: it lifts off the
+     * start face, crosses into the end face over their shared edge (adjacent
+     * faces) or over the side facing the camera (opposite faces), and drops
+     * onto the end. Points are in the cube's own frame; the cube spans ±size/2.
+     */
+    arrowPath(a, normalA, b, normalB) {
+      const h = this.view.size / 2;
+      // Pick the faces to leave and arrive on: a shared face first, then neighbouring faces,
+      // and among equals the ones turned most toward the camera.
+      const cam = this.view.root.worldToLocal(this.view.camera.position.clone()).normalize();
+      let na = null;
+      let nb = null;
+      let best = -Infinity;
+      faceNormals(normalA).forEach((ca) => faceNormals(normalB).forEach((cb) => {
+        const score = ca.dot(cb) * 10 + ca.dot(cam) + cb.dot(cam);
+        if (score > best) { best = score; na = ca; nb = cb; }
+      }));
+      const lifted = (p, n, k = 1) => p.clone().addScaledVector(n, LIFT * k);
+      // Point on the edge where the faces with normals n1 and n2 meet, at p's position along that edge.
+      const onEdge = (p, n1, n2) => {
+        const e = p.clone();
+        [n1, n2].forEach((n) => {
+          const k = [n.x, n.y, n.z].findIndex((c) => c !== 0);
+          e.setComponent(k, Math.sign(n.getComponent(k)) * h);
+        });
+        return lifted(e, n1.clone().add(n2).normalize(), 1.3);
+      };
+      const points = [a, lifted(a, na)];
+      const cos = na.dot(nb);
+      if (cos > 0.5) {
+        // Same face: arc over it, higher for longer arrows.
+        points.push(lifted(a.clone().add(b).multiplyScalar(0.5), na, 1 + a.distanceTo(b) * 0.35));
+      } else if (cos > -0.5) {
+        points.push(onEdge(a.clone().add(b).multiplyScalar(0.5), na, nb));
+      } else {
+        // Opposite faces: go round over the side that faces the camera most.
+        const sides = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
+          .map((v) => new THREE.Vector3(...v)).filter((v) => Math.abs(v.dot(na)) < 0.5);
+        const side = sides.reduce((best, v) => (v.dot(cam) > best.dot(cam) ? v : best));
+        points.push(onEdge(a, na, side), onEdge(b, nb, side));
+      }
+      points.push(lifted(b, nb), b);
+      return new THREE.CatmullRomCurve3(points, false, 'centripetal');
     }
 
     // ---- From / To labels ---------------------------------------------------

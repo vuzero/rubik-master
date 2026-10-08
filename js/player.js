@@ -3,15 +3,19 @@
  *
  * The cube shows the current step as it starts: From → To labels and arrows
  * mark which piece goes where, and the dock lists the moves to do. The
- * Before / After switch fades the cube to its state after the step
- * (destinations marked "Done") and back. Next and Back move one whole step.
- * Step n (one past the last step) is the solved cube.
+ * Before / After switch turns the cube through the step's moves (destinations
+ * then marked "Done") and back; Next and Back do the same a whole step at a
+ * time. The move being turned is highlighted in the dock. Pressing again while
+ * the cube turns skips to the end. Step n (one past the last) is the solved cube.
  */
 (function (root) {
   'use strict';
   const C = root.Cube4;
   const N = root.Notation;
-  const FADE_MS = 520;
+  // One quarter turn takes MOVE_MS; long sequences speed up so none lasts much over MAX_SEQUENCE_MS.
+  const MOVE_MS = 340;
+  const MIN_MOVE_MS = 120;
+  const MAX_SEQUENCE_MS = 6500;
   const STAGES = ['Centers', 'Edges', 'Layers 1–2', 'Yellow top', 'Last layer'];
   const STAGE_OF_PHASE = { Centers: 0, Edges: 1, 'Layer 1': 2, 'Layer 2': 2, 'Yellow top': 3, 'Last layer': 4 };
   const MAX_ROUTES = 2;
@@ -30,6 +34,7 @@
       this.chain = Promise.resolve();
       this.gen = 0; // bumped by every jump; stale transitions check it and give up
       this.busy = false;
+      this.rush = false; // set when the viewer presses again mid-sequence: finish without animating
       this.step = 0;
       this.result = false;
       this.bindControls();
@@ -70,7 +75,14 @@
 
     // ---- positions ------------------------------------------------------
     get finished() { return this.step >= this.steps.length; }
-    cubeAt(step, result) { return this.states[Math.min(this.steps.length, step + (result ? 1 : 0))]; }
+    stateIndex(step, result) { return Math.min(this.steps.length, step + (result ? 1 : 0)); }
+    cubeAt(step, result) { return this.states[this.stateIndex(step, result)]; }
+
+    // The moves that take state i to state j (backwards: the inverse moves).
+    movesBetween(i, j) {
+      if (j >= i) return this.steps.slice(i, j).flatMap((s) => s.moves);
+      return C.invertAlg(this.steps.slice(j, i).flatMap((s) => s.moves));
+    }
 
     // Parity fixes belong to the stage of the step that follows them.
     assignStages(steps) {
@@ -87,29 +99,59 @@
     // ---- actions --------------------------------------------------------
     enqueue(action) {
       const gen = this.gen;
-      if (this.busy) this.view.finishNow();
+      if (this.busy) {
+        this.rush = true;
+        this.view.finishNow();
+      }
       this.chain = this.chain.then(() => (gen === this.gen ? action() : null)).catch(() => {});
       return this.chain;
     }
 
-    // Fade the cube to (step, result), then redraw the dock for it.
+    // Turn the cube to (step, result) move by move, then redraw the dock for it.
     async go(stepWanted, resultWanted) {
       const step = Math.max(0, Math.min(this.steps.length, stepWanted));
       const result = resultWanted && step < this.steps.length;
       if (step === this.step && result === this.result) return;
       const gen = this.gen;
-      const from = this.cubeAt(this.step, this.result);
-      const to = this.cubeAt(step, result);
+      const from = this.stateIndex(this.step, this.result);
+      const to = this.stateIndex(step, result);
       if (from !== to) {
         this.busy = true;
+        this.rush = false;
         this.overlay?.clear();
-        await this.view.tweenColors(this.project(from), this.project(to), FADE_MS);
+        // Only the step shown in the dock gets its tokens lit up as they turn.
+        const shown = this.step;
+        const forward = from === shown && to === shown + 1;
+        const backward = from === shown + 1 && to === shown;
+        const moves = this.movesBetween(from, to);
+        await this.playMoves(this.states[from], moves, (k) => {
+          this.markToken(k < 0 ? -1 : forward ? k : backward ? moves.length - 1 - k : -1);
+          this.els.viewNote.textContent = k < 0 ? '' : `Turning ${moves[k]}`;
+        });
         this.busy = false;
         if (gen !== this.gen) return;
       }
       this.step = step;
       this.result = result;
       this.render();
+    }
+
+    async playMoves(start, moves, onMove) {
+      const gen = this.gen;
+      const perMove = Math.max(MIN_MOVE_MS, Math.min(MOVE_MS, MAX_SEQUENCE_MS / moves.length));
+      let cur = start;
+      for (let k = 0; k < moves.length; k++) {
+        onMove(k);
+        if (!this.rush) await this.view.animateMove(moves[k], perMove);
+        if (gen !== this.gen) return;
+        cur = C.applyMove(cur, moves[k]);
+        this.view.setState(this.project(cur));
+      }
+      onMove(-1);
+    }
+
+    markToken(index) {
+      this.els.stepBody.querySelectorAll('.token').forEach((t, i) => t.classList.toggle('is-now', i === index));
     }
 
     next() { return this.enqueue(() => this.go(this.step + 1, false)); }

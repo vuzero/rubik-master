@@ -45,10 +45,10 @@ The solve uses the corner steps of the layer-by-layer stage: white corners with 
 The solve screen shows the cube large in the middle, a stage checklist on the right and a dock along the bottom:
 
 - **Before:** the cube as the step starts. The piece to move has a violet **From** label and its destination a cyan **To** label, joined by an arrow. The dock shows one line per piece (for example "White–Green edge: top-back edge → bottom-front edge") and the step's moves, to do on your own cube.
-- The **Before / After** switch fades the cube to its state after the step (the destination is marked **Done ✓**) and back.
-- **‹ Back** and **Next step ›** move one whole step. After the last step the cube is solved and Next becomes **Start over**.
+- The **Before / After** switch turns the cube through the step's moves, one turn at a time with the current move lit up in the dock, until the destination is marked **Done ✓**; switching back turns it in reverse.
+- **‹ Back** and **Next step ›** move one whole step, with the same turning animation. Pressing again while the cube turns skips to the end. After the last step the cube is solved and Next becomes **Start over**.
 
-Keys: <kbd>→</kbd> next step, <kbd>←</kbd> back, <kbd>Space</kbd> switch between Before and After. Intermediate positions are not animated: you see where each piece starts and where it must end up. **Why these moves?** opens the explanation, the stage checklist and **All steps** jump anywhere.
+Keys: <kbd>→</kbd> next step, <kbd>←</kbd> back, <kbd>Space</kbd> switch between Before and After. The From → To arrow runs along the outside of the cube: over the shared edge between two faces, or across the side facing you between opposite faces. **Why these moves?** opens the explanation, the stage checklist and **All steps** jump anywhere.
 
 The look is a notebook page (paper with a dot grid, moss-green accent, with a dark version) set in Fredoka for headings, buttons and moves and Figtree for text. Buttons are soft pills: secondary ones on a tinted ground, the main action solid green.
 

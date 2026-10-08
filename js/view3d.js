@@ -1,7 +1,8 @@
 /*
- * Three.js view of a 2x2, 3x3 or 4x4 cube. Cubies never move: the view only
- * recolors stickers (setState) or fades them from one state to another
- * (tweenColors), so the picture always matches the logical state exactly.
+ * Three.js view of a 2x2, 3x3 or 4x4 cube. A move is animated by turning the
+ * moving cubies in a pivot group; afterwards they go back to their home slots
+ * and the caller recolors every sticker from the new state (setState), so the
+ * picture always matches the logical state exactly (no floating-point drift).
  */
 (function (root) {
   'use strict';
@@ -10,6 +11,10 @@
   const STICKER_HEX = { W: 0xf4f5f0, Y: 0xffd200, G: 0x00a651, B: 0x0b55c4, R: 0xc8102e, O: 0xff6a13 };
   const BLANK_HEX = 0x6f7885;
   const PLASTIC_HEX = 0x14171c;
+  const AXIS_NAME = ['x', 'y', 'z'];
+  // 4x4 layer index (0..3) -> layer index on a smaller cube; the 4x4's two middle
+  // layers are the 3x3's middle layer and do not exist on a 2x2.
+  const LAYER_MAP = { 4: [0, 1, 2, 3], 3: [0, 1, 1, 2], 2: [0, -1, -1, 1] };
   // Model rotations [x, y] that bring a face into the camera's view.
   const FOCUS = {
     default: [0.05, -0.12], U: [0.35, -0.12], F: [0.05, -0.12], R: [0.05, -0.55],
@@ -79,6 +84,8 @@
       this.root = new THREE.Group();
       this.root.rotation.set(0.05, -0.12, 0);
       this.scene.add(this.root);
+      this.pivot = new THREE.Group();
+      this.root.add(this.pivot);
       return true;
     }
 
@@ -147,56 +154,46 @@
       if (this.active) this.active.done();
     }
 
+    /** Moves use 4x4 layers (-3, -1, 1, 3); find the matching layers of this cube. */
+    layersFor(layers4) {
+      const n = this.size;
+      const map = LAYER_MAP[n];
+      return [...new Set(layers4.map((l) => map[(l + 3) / 2]).filter((k) => k >= 0).map((k) => 2 * k - (n - 1)))];
+    }
+
     /**
-     * Fade every sticker from one state's colors to another's. Used to go from a
-     * step's plan straight to its result without showing the moves in between.
+     * Animate one move (outer, wide or slice turn, or a whole-cube rotation).
+     * Resolves when done; the caller then calls setState(next).
      */
-    tweenColors(fromLetters, toLetters, durationMs) {
-      if (!this.ok || reducedMotion() || durationMs <= 0) return this.hold(0);
+    animateMove(token, durationMs) {
+      if (!this.ok || reducedMotion() || durationMs <= 0) return Promise.resolve();
       this.finishNow();
-      const changed = [];
-      fromLetters.forEach((c, i) => {
-        if (c !== toLetters[i]) {
-          changed.push({
-            mat: this.stickers[i].material,
-            from: new THREE.Color(STICKER_HEX[c] ?? BLANK_HEX),
-            to: new THREE.Color(STICKER_HEX[toLetters[i]] ?? BLANK_HEX),
-          });
-        }
-      });
+      const mv = C.parseToken(token);
+      const layers = this.layersFor(mv.layers);
+      const angle = (mv.q === 3 ? -1 : mv.q) * (Math.PI / 2);
+      const duration = durationMs * (mv.q === 2 ? 1.45 : 1) * (mv.rotation ? 1.2 : 1);
+      const moving = this.cubies.filter((c) => layers.includes(c.userData.p[mv.axis]));
+      const axisName = AXIS_NAME[mv.axis];
+      moving.forEach((c) => this.pivot.add(c));
+
       return new Promise((resolve) => {
         const start = performance.now();
         const done = () => {
-          changed.forEach((c) => c.mat.color.copy(c.to));
+          moving.forEach((c) => this.root.add(c));
+          this.pivot.rotation.set(0, 0, 0);
           this.active = null;
-          this.render();
           resolve();
         };
         this.active = { done };
         const tick = (now) => {
           if (this.active?.done !== done) return;
-          const t = Math.min(1, (now - start) / durationMs);
-          const e = ease(t);
-          changed.forEach((c) => c.mat.color.copy(c.from).lerp(c.to, e));
+          const t = Math.min(1, (now - start) / duration);
+          this.pivot.rotation[axisName] = angle * ease(t);
           this.render();
           if (t < 1) requestAnimationFrame(tick);
           else done();
         };
         requestAnimationFrame(tick);
-      });
-    }
-
-    /** Wait like a move would, without animating; finishNow() ends it early. */
-    hold(durationMs) {
-      this.finishNow();
-      return new Promise((resolve) => {
-        const done = () => {
-          clearTimeout(timer);
-          if (this.active?.done === done) this.active = null;
-          resolve();
-        };
-        const timer = setTimeout(done, Math.max(0, durationMs));
-        this.active = { done };
       });
     }
 
