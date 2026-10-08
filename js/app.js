@@ -169,7 +169,6 @@
       els: {
         root: $('solve-view'),
         counterMoves: $('counter-moves'),
-        viewNote: $('view-note'),
         btnBack: $('btn-back'),
         btnFwd: $('btn-fwd'),
         btnRestart: $('btn-restart'),

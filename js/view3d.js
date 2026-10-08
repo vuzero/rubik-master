@@ -12,6 +12,10 @@
   const BLANK_HEX = 0x6f7885;
   const PLASTIC_HEX = 0x14171c;
   const AXIS_NAME = ['x', 'y', 'z'];
+  const CAMERA_DIR = [6.4, 5.4, 8.6]; // the camera looks at the cube from front-right-above
+  // Every size is drawn 4 units wide; keep its bounding sphere (radius 2√3) plus room for the
+  // From / To labels inside the frame, whatever way the cube is turned.
+  const FIT_RADIUS = 2 * Math.sqrt(3) * 1.12;
   // 4x4 layer index (0..3) -> layer index on a smaller cube; the 4x4's two middle
   // layers are the 3x3's middle layer and do not exist on a 2x2.
   const LAYER_MAP = { 4: [0, 1, 2, 3], 3: [0, 1, 1, 2], 2: [0, -1, -1, 1] };
@@ -75,7 +79,7 @@
       this.container.appendChild(canvas);
       this.scene = new THREE.Scene();
       this.camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
-      this.camera.position.set(6.4, 5.4, 8.6);
+      this.camera.position.set(...CAMERA_DIR).normalize().multiplyScalar(15);
       this.camera.lookAt(0, 0, 0);
       this.scene.add(new THREE.HemisphereLight(0xffffff, 0x8890a0, 0.95));
       const key = new THREE.DirectionalLight(0xffffff, 0.55);
@@ -289,6 +293,10 @@
         this.renderer.setSize(w, h, false);
         this.camera.aspect = w / h;
         this.camera.fov = w < h ? 36 : 30;
+        // Back the camera off until the cube fits both the height and the width of the frame.
+        const halfV = THREE.MathUtils.degToRad(this.camera.fov / 2);
+        const halfH = Math.atan(Math.tan(halfV) * this.camera.aspect);
+        this.camera.position.set(...CAMERA_DIR).normalize().multiplyScalar(FIT_RADIUS / Math.sin(Math.min(halfV, halfH)));
         this.camera.updateProjectionMatrix();
         this.render();
       };

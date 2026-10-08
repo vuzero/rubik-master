@@ -242,12 +242,9 @@ main { max-width: 1240px; margin: 0 auto; }
   grid-template-areas: 'stage side' 'dock dock';
 }
 .cube-stage { grid-area: stage; position: relative; min-width: 0; }
-.cube-stage .viewport { aspect-ratio: 16 / 10; background: transparent; }
-.view-note {
-  position: absolute; top: 6px; left: 8px; z-index: 1; pointer-events: none;
-  font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
-}
-.view-note.is-result { color: var(--accent-text); }
+/* The cube area fills what the screen has left after the top bar, stage bar and dock,
+   so the whole cube is always in view above the dock. */
+.cube-stage .viewport { aspect-ratio: auto; height: clamp(300px, calc(100dvh - 300px), 760px); background: transparent; }
 
 .side { grid-area: side; display: flex; flex-direction: column; gap: 10px; min-width: 0; align-self: start; }
 .stages-card { padding: 14px; display: flex; flex-direction: column; gap: 6px; }
@@ -270,7 +267,7 @@ main { max-width: 1240px; margin: 0 auto; }
 
 .dock {
   grid-area: dock; position: sticky; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 2;
-  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 16px; align-items: center;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center;
   background: var(--surface); border: 1.5px solid var(--line); border-radius: 22px; padding: 12px;
   box-shadow: 0 18px 34px -24px var(--shadow);
 }
@@ -289,24 +286,12 @@ main { max-width: 1240px; margin: 0 auto; }
 .dock-btn:active:not(:disabled) { transform: scale(0.97); }
 .dock-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .chev { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-.dock-mid { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.dock-mid { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding-left: 8px; }
+.dock-nav { display: flex; gap: 10px; }
 #step-body { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .dock-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
 .dock-title span { font-size: 14px; font-weight: 600; color: var(--muted); }
 .dock-note { margin: 0; font-size: 14px; color: var(--muted); }
-.from-word { color: var(--goal-src); }
-.to-word { color: var(--goal-dst); }
-
-.routes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 15px; }
-.routes li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-.routes b { font-weight: 700; }
-.routes .route { color: var(--goal-src); font-weight: 600; }
-.routes.is-done .route { color: var(--accent-text); }
-.routes .more { color: var(--muted); font-size: 13.5px; }
-.swatches { display: inline-flex; gap: 3px; }
-.sw { width: 15px; height: 15px; border-radius: 4px; display: inline-block; box-shadow: inset 0 0 0 1.5px rgb(0 0 0 / 0.22); }
-.sw-W { background: #f4f5f0; } .sw-Y { background: #ffd200; } .sw-G { background: #00a651; }
-.sw-B { background: #0b55c4; } .sw-R { background: #c8102e; } .sw-O { background: #ff6a13; }
 
 .moves { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
 .move-group { display: inline-flex; flex-wrap: wrap; gap: 5px; }
@@ -365,13 +350,14 @@ main { max-width: 1240px; margin: 0 auto; }
   .preview-panel .viewport { max-width: 360px; margin-inline: auto; }
   /* One column: cube, dock, then the side panel (the stage bar already shows progress). */
   .solve-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'stage' 'dock' 'side'; }
-  .cube-stage .viewport { aspect-ratio: 5 / 4; }
+  .cube-stage .viewport { height: auto; aspect-ratio: 1 / 1; max-height: 70dvh; }
   .stages-card { display: none; }
   .steps-panel { max-height: none; }
 }
 @media (max-width: 640px) {
-  .dock { grid-template-columns: 1fr 1fr; gap: 10px; }
-  .dock-mid { grid-column: 1 / -1; order: -1; }
+  .dock { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .dock-mid { padding-left: 0; }
+  .dock-nav { display: grid; grid-template-columns: 1fr 1.4fr; }
   .dock-btn, .dock-btn.primary { min-width: 0; height: 56px; padding: 0 16px; font-size: 17px; }
   .view-switch { margin-left: 0; }
 }

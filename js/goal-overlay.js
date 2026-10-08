@@ -47,19 +47,12 @@
     return new THREE.ShapeGeometry(shape);
   }
 
-  // Face normals a piece touches: one for a center, two for an edge, three for a corner.
-  function faceNormals(v) {
-    return [0, 1, 2].filter((k) => Math.abs(v.getComponent(k)) > 0.3).map((k) => {
-      const out = new THREE.Vector3();
-      out.setComponent(k, Math.sign(v.getComponent(k)));
-      return out;
-    });
+  // Face normals a group of stickers touches: one for a center, two for an edge, three for a corner.
+  function faceNormals(group, geom) {
+    const keys = [...new Set(group.map((i) => geom[i].n.join(',')))];
+    return keys.map((k) => new THREE.Vector3(...k.split(',').map(Number)));
   }
-
-  // Outward normal of a group of stickers (a corner or edge piece averages its faces).
-  function groupNormal(group, geom) {
-    return group.reduce((n, i) => n.add(new THREE.Vector3(...geom[i].n)), new THREE.Vector3()).normalize();
-  }
+  const stickersOn = (group, geom, n) => group.filter((i) => n.equals(new THREE.Vector3(...geom[i].n)));
 
   // Point just above a group of stickers, in the cube's own (home) frame.
   function groupAnchor(group, geom) {
@@ -160,12 +153,14 @@
 
     addArrow(fromGroup, toGroup) {
       if (sameSlots(fromGroup, toGroup)) return;
-      const a = groupAnchor(fromGroup, this.view.geom);
-      const b = groupAnchor(toGroup, this.view.geom);
-      const dist = a.distanceTo(b);
-      if (dist < 0.05) return;
+      const { geom } = this.view;
+      const [na, nb] = this.pickFaces(fromGroup, toGroup);
+      // Start and end on the stickers of the chosen faces, so the arrow leaves straight off a face.
+      const a = groupAnchor(stickersOn(fromGroup, geom, na), geom);
+      const b = groupAnchor(stickersOn(toGroup, geom, nb), geom);
+      if (a.distanceTo(b) < 0.05) return;
 
-      const curve = this.arrowPath(a, groupNormal(fromGroup, this.view.geom), b, groupNormal(toGroup, this.view.geom));
+      const curve = this.arrowPath(a, na, b, nb);
       this.arrows.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 48, 0.026, 8, false), this.arrowMat));
       const headLen = 0.24;
       const headGeo = new THREE.ConeGeometry(0.085, headLen, 16);
@@ -176,24 +171,27 @@
       this.arrows.add(head);
     }
 
+    // The faces to leave from and arrive on: a shared face first, then neighbouring faces,
+    // and among equals the ones turned most toward the camera.
+    pickFaces(fromGroup, toGroup) {
+      const { geom } = this.view;
+      const cam = this.view.root.worldToLocal(this.view.camera.position.clone()).normalize();
+      let best = null;
+      faceNormals(fromGroup, geom).forEach((ca) => faceNormals(toGroup, geom).forEach((cb) => {
+        const score = ca.dot(cb) * 10 + ca.dot(cam) + cb.dot(cam);
+        if (!best || score > best.score) best = { score, faces: [ca, cb] };
+      }));
+      return best.faces;
+    }
+
     /**
      * A smooth path from a to b that never enters the cube: it lifts off the
      * start face, crosses into the end face over their shared edge (adjacent
      * faces) or over the side facing the camera (opposite faces), and drops
      * onto the end. Points are in the cube's own frame; the cube spans ±size/2.
      */
-    arrowPath(a, normalA, b, normalB) {
+    arrowPath(a, na, b, nb) {
       const h = this.view.size / 2;
-      // Pick the faces to leave and arrive on: a shared face first, then neighbouring faces,
-      // and among equals the ones turned most toward the camera.
-      const cam = this.view.root.worldToLocal(this.view.camera.position.clone()).normalize();
-      let na = null;
-      let nb = null;
-      let best = -Infinity;
-      faceNormals(normalA).forEach((ca) => faceNormals(normalB).forEach((cb) => {
-        const score = ca.dot(cb) * 10 + ca.dot(cam) + cb.dot(cam);
-        if (score > best) { best = score; na = ca; nb = cb; }
-      }));
       const lifted = (p, n, k = 1) => p.clone().addScaledVector(n, LIFT * k);
       // Point on the edge where the faces with normals n1 and n2 meet, at p's position along that edge.
       const onEdge = (p, n1, n2) => {
@@ -213,6 +211,7 @@
         points.push(onEdge(a.clone().add(b).multiplyScalar(0.5), na, nb));
       } else {
         // Opposite faces: go round over the side that faces the camera most.
+        const cam = this.view.root.worldToLocal(this.view.camera.position.clone()).normalize();
         const sides = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
           .map((v) => new THREE.Vector3(...v)).filter((v) => Math.abs(v.dot(na)) < 0.5);
         const side = sides.reduce((best, v) => (v.dot(cam) > best.dot(cam) ? v : best));

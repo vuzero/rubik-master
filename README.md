@@ -42,10 +42,10 @@ The solve uses the corner steps of the layer-by-layer stage: white corners with 
 
 ## Solving, step by step
 
-The solve screen shows the cube large in the middle, a stage checklist on the right and a dock along the bottom:
+The solve screen shows the whole cube in the middle (the camera always fits it in view), a stage checklist on the right and a dock along the bottom: the step's title and moves on the left, **‹ Back** and **Next move ›** side by side on the right.
 
-- **Before:** the cube as the step starts. The piece to move has a violet **From** label and its destination a cyan **To** label, joined by an arrow. The dock shows one line per piece (for example "White–Green edge: top-back edge → bottom-front edge") and the step's moves, to do on your own cube.
-- **Next move ›** turns the cube one move (about 0.6 s per quarter turn), with that move lit up in the dock; moves already done get a ✓ and the next one a ring. The From label and arrow follow the piece. When the step's moves are done the destination is marked **Done ✓** and the button becomes **Next step ›**.
+- **Plan:** before the step's first move, the piece to move has a violet **From** label and its destination a cyan **To** label, joined by an arrow. The plan is shown once per step, not redrawn after every move.
+- **Next move ›** turns the cube one move (about 0.6 s per quarter turn), with that move lit up in the dock; moves already done get a ✓ and the next one a ring. When the step's moves are done the destination is marked **Done ✓** and the button becomes **Next step ›**.
 - **‹ Back** turns the last move back; at the start of a step it goes to the end of the previous one. Pressing either button while the cube turns finishes that turn at once.
 - The **Before / After** switch jumps straight to the start or the end of the step. After the last step the cube is solved and the button becomes **Start over**.
 

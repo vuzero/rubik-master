@@ -2,10 +2,10 @@
  * Step-by-step playback of a solution, one move at a time.
  *
  * The position is (step, move): how many of the current step's moves are done.
- * With none done the cube shows the step as it starts: From → To labels and
- * arrows mark which piece goes where, and the dock lists the moves. Next turns
- * the next move (and the arrow follows the piece); once the step is done, Next
- * goes on to the next step. Back turns the last move back. The Before / After
+ * With none done the cube shows the step's plan: From → To labels and arrows
+ * mark which piece goes where, and the dock lists the moves. Next turns the
+ * next move (the plan is not redrawn mid-step); once the step is done its
+ * destinations are marked "Done" and Next goes on to the next step. Back turns the last move back. The Before / After
  * switch jumps straight to the start or the end of the step. Step n (one past
  * the last) is the solved cube.
  */
@@ -16,7 +16,6 @@
   const MOVE_MS = 600; // one quarter turn; half turns and cube rotations take a little longer
   const STAGES = ['Centers', 'Edges', 'Layers 1–2', 'Yellow top', 'Last layer'];
   const STAGE_OF_PHASE = { Centers: 0, Edges: 1, 'Layer 1': 2, 'Layer 2': 2, 'Yellow top': 3, 'Last layer': 4 };
-  const MAX_ROUTES = 2;
   const CHEVRON = {
     left: '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
     right: '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>',
@@ -115,7 +114,6 @@
       this.busy = true;
       this.overlay?.clear();
       this.markToken(index);
-      this.els.viewNote.textContent = `Turning ${token}`;
       await this.view.animateMove(token, MOVE_MS);
       this.busy = false;
       if (gen !== this.gen) return;
@@ -194,7 +192,6 @@
       const { els } = this;
       const s = this.step;
       const n = this.steps.length;
-      const total = this.movesOf(s).length;
       this.view.setState(this.project(this.cubeNow()));
 
       els.counterMoves.textContent = n ? `${n} steps · ${this.totalMoves} moves` : '';
@@ -202,10 +199,6 @@
       els.btnFwd.disabled = n === 0;
       const label = this.finished ? 'Start over' : !this.atEnd ? 'Next move' : s === n - 1 ? 'Finish' : 'Next step';
       els.btnFwd.innerHTML = this.finished ? `<span>${label}</span>` : `<span>${label}</span>${CHEVRON.right}`;
-      els.viewNote.textContent = this.finished ? 'Solved'
-        : this.move === 0 ? 'Before this step'
-          : this.atEnd ? 'After this step' : `${this.move} of ${total} moves done`;
-      els.viewNote.classList.toggle('is-result', this.atEnd || this.finished);
       this.renderBody(s);
       this.renderWhy(s);
       this.renderListState(s);
@@ -222,19 +215,18 @@
       }
     }
 
-    // From → To while the step is under way (From follows the piece); at the end, the filled slots.
+    // The plan (From → To) before the first move, the filled slots after the last, nothing in between.
     renderGoal(s) {
       if (!this.overlay) return;
       const step = this.steps[s];
-      if (!step) { this.overlay.clear(); return; }
-      const done = step.moves.slice(0, this.move);
+      if (!step || (this.move > 0 && !this.atEnd)) { this.overlay.clear(); return; }
       const groups = step.goal.items.flatMap((it) => it.groups)
-        .map((g) => ({ from: this.mapGroup(root.Goals.track(g.from, done)), to: this.mapGroup(g.to) }));
+        .map((g) => ({ from: this.mapGroup(g.from), to: this.mapGroup(g.to) }));
       if (this.atEnd) this.overlay.showResult(groups.map((g) => g.to));
       else this.overlay.show(groups);
     }
 
-    // The dock: title, where each piece goes, the moves (done / next / still to do) and Before / After.
+    // The dock: the step's title, its moves (done / next / still to do) and Before / After.
     renderBody(s) {
       const step = this.steps[s];
       this.els.why.hidden = !step;
@@ -247,27 +239,15 @@
         return;
       }
       const done = this.atEnd;
-      const swatches = (cols) => `<span class="swatches">${cols.map((c) => `<i class="sw sw-${c}"></i>`).join('')}</span>`;
-      const items = step.goal.items;
-      const shown = items.slice(0, MAX_ROUTES);
-      const routes = shown.map((it) => `<li>${swatches(it.colors)}<b>${esc(it.name)}</b> <span class="route">${done
-        ? `now in the ${esc(it.toName)}`
-        : it.inPlace ? 'turns in place' : `${esc(it.fromName)} <span aria-hidden="true">→</span> ${esc(it.toName)}`}</span></li>`).join('')
-        + (items.length > shown.length ? `<li class="more">+${items.length - shown.length} more pieces</li>` : '');
       let k = 0;
       const tokenClass = (i) => (i < this.move ? 'is-done' : i === this.move ? 'is-next' : '');
       const groups = step.parts.map((part) => `<span class="move-group" title="${esc(part.label)}">${part.moves
         .map((m) => { const i = k++; return `<span class="token ${tokenClass(i)}" title="${esc(N.explain(m).title)}">${esc(m)}</span>`; }).join('')}</span>`).join('');
-      const hint = s === 0 && this.move === 0
-        ? '<p class="dock-note">Find the piece marked <b class="from-word">From</b> on your cube, then press Next move for each turn until it lands on <b class="to-word">To</b>.</p>'
-        : '';
-      this.els.stepBody.innerHTML = `<div class="dock-title"><h2>${esc(step.title)}</h2>`
-        + `<span>Step ${s + 1} of ${this.steps.length} · ${esc(step.phase)}</span></div>`
-        + `<ul class="routes ${done ? 'is-done' : ''}">${routes}</ul>`
+      this.els.stepBody.innerHTML = `<div class="dock-title"><h2>${esc(step.title)}</h2></div>`
         + `<div class="moves" aria-label="Moves for this step: ${this.move} of ${step.moves.length} done">${groups}`
         + '<span class="view-switch" role="group" aria-label="Jump to the start or end of this step">'
         + `<button type="button" data-result="0" aria-pressed="${this.move === 0}">Before</button>`
-        + `<button type="button" data-result="1" aria-pressed="${done}">After</button></span></div>${hint}`;
+        + `<button type="button" data-result="1" aria-pressed="${done}">After</button></span></div>`;
     }
 
     // Detail on demand: what the step is for, what each part does, and how it works.
